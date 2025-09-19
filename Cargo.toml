@@ -1,9 +1,9 @@
 [package]
-name = "gnucashmigrate"
+name = "finance-together"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-xml = "0.8.20"
-uuid = {version = "1.10.0", features = ["v4"]}
-chrono = "0.4.38"
+libloading = "0.8.8"
+tokio = "1.47.1"
+finance-together-api = {version = "0.1.0", path = "../rediocash-api"}
