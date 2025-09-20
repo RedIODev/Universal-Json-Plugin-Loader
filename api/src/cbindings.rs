@@ -399,6 +399,7 @@ pub enum ServiceError {
     NotFound = 7,
     Unauthorized = 8,
     Duplicate = 9,
+    PluginUninit = 10,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -423,7 +424,7 @@ pub type HandlerUnregisterService = ::std::option::Option<
     unsafe extern "C" fn(arg1: CUuid, arg2: CUuid, arg3: CString) -> ServiceError,
 >;
 pub type EventRegisterService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CString, arg2: CString, arg3: CUuid, arg4: CString) -> ServiceError,
+    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> ServiceError,
 >;
 pub type EventUnregisterService =
     ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;

@@ -32,7 +32,8 @@ typedef enum {
     INVALID_INPUT_4_SERVICE,
     NOT_FOUND_SERVICE,
     UNAUTHORIZED_SERVICE,
-    DUPLICATE_SERVICE
+    DUPLICATE_SERVICE,
+    PLUGIN_UNINIT_SERVICE
 } ServiceError;
 
 // Handler struct that carries the success state and the generated handler_id with it.
@@ -60,11 +61,10 @@ typedef ServiceError (*HandlerUnregisterService)(Uuid, Uuid, String);
 
 // Service function to register a new event.
 // The first    argument is the json schema the events arguments have to satisfy.
-// The second   argument is the json schema the events response has to satisfy.
-// The third    argument has to be the plugins uuid.
-// The forth    argument is the events name. This will be prefixed by this plugins name.
+// The second   argument has to be the plugins uuid.
+// The third    argument is the events name. This will be prefixed by this plugins name.
 // Returns the success state of the registration.
-typedef ServiceError (*EventRegisterService)(String, String, Uuid, String);
+typedef ServiceError (*EventRegisterService)(String, Uuid, String);
 
 // Service function to unregister an event.
 // The first    argument has to be the plugins uuid.
@@ -75,6 +75,7 @@ typedef ServiceError (*EventUnregisterService)(Uuid, String);
 // Service function to trigger an event.
 // The first    argument has to be the plugins uuid.
 // The second   argument is the events name to be triggered.
+// The third    argument is the events arguments.
 // Returns the success state of the trigger.
 typedef ServiceError (*EventTriggerService)(Uuid, String, String);
 

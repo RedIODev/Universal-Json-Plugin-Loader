@@ -45,11 +45,11 @@ pub enum StringConventError {
 }
 
 impl CUuid {
-    pub fn as_u64_pair(&self) -> (u64, u64) {
+    pub const fn as_u64_pair(&self) -> (u64, u64) {
         (self.first, self.second)
     }
 
-    pub fn from_u64_pair(pair: (u64, u64)) -> Self {
+    pub const fn from_u64_pair(pair: (u64, u64)) -> Self {
         Self {first: pair.0, second: pair.1}
     }
 }
