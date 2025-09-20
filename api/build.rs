@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf, str::FromStr};
 
-use bindgen_helpers::Renamer;
+use bindgen_helpers::{rename_enum, Renamer};
 
 fn main() {
 
@@ -18,13 +18,20 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     let mut renamer = Renamer::new(false);
     renamer.rename_item("Handler", "CHandler");
+    renamer.rename_item("HandlerFP", "CHandlerFP");
     renamer.rename_item("String", "CString");
     renamer.rename_item("Uuid", "CUuid");
+    rename_enum!(
+        renamer,
+        "ServiceError" => "ServiceError",
+        remove: "_SERVICE$"
+    );
 
     let bindings = bindgen_helpers::Builder::default()
             .header("./src/capi/header/ft_api.h")
             .parse_callbacks(Box::new(bindgen_helpers::CargoCallbacks::new()))
             .derive_copy(false)
+            .default_enum_style(bindgen_helpers::EnumVariation::Rust { non_exhaustive: false })
             .parse_callbacks(Box::new(renamer))
             .generate()
             .expect("Unable to generate c -> rust bindings!");

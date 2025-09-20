@@ -11,11 +11,10 @@ struct ApplicationContext;
 typedef struct ApplicationContext (*ContextSupplier)();
 
 // The Type used for handling messages.
-// The first String is the argument is the arguments of the message to be handled.
-// The second argument is used as an output.
-// If the handler finishes successfully it should return true and the output parameter contains the result.
-// If the handler encounters an error handling the request it should return false and the output parameter is an error message.
-typedef bool (*Handler)(NON_NULL ContextSupplier, String, OUT String *);
+// The first    argument is the supplier function for the Application Context.
+// The second   argument is the input args from the event in the specified json format.
+typedef void (*HandlerFP)(NON_NULL ContextSupplier, String);
+
 
 // Uuid type to pass uuids over the ffi boundary safely
 typedef struct {
@@ -23,43 +22,72 @@ typedef struct {
     u64 second;
 } Uuid;
 
+typedef enum {
+    SUCCESS_SERVICE = 0,
+    CORE_INTERNAL_ERROR_SERVICE,
+    INVALID_INPUT_0_SERVICE,
+    INVALID_INPUT_1_SERVICE,
+    INVALID_INPUT_2_SERVICE,
+    INVALID_INPUT_3_SERVICE,
+    INVALID_INPUT_4_SERVICE,
+    NOT_FOUND_SERVICE,
+    UNAUTHORIZED_SERVICE,
+    DUPLICATE_SERVICE
+} ServiceError;
+
+// Handler struct that carries the success state and the generated handler_id with it.
+// The handler_id is required to unregister the handler later.
+// All fields values are undefined unless the error field == SUCCESS_SERVICE.
+typedef struct {
+    NON_NULL HandlerFP function;
+    Uuid handler_id;
+    ServiceError error;
+} Handler;
+
 // Service function to register a new handler for a given event.
 // The first    argument is the handler to be registered.
 // The second   argument has to be the plugins uuid.
 // The third    argument is the events name to register the handler to. The name follows the format "<plugin-name>:<event-name>"
-// returns true when the handler was added successfully, otherwise false.
-typedef bool (*HandlerRegisterService)(NON_NULL Handler, Uuid, String);
+// Returns the success state of the registration.
+typedef Handler (*HandlerRegisterService)(NON_NULL HandlerFP, Uuid, String);
 
 // Service function to unregister a handler for a given event.
-// The first    argument is the handler to be removed.
+// The first    argument is the handlerId to be removed.
 // The second   argument has to be the plugins uuid.
 // The third    argument is the events name to remove the handler from. The name follows the format "<plugin-name>:<event-name>"
-// returns true when the handler was removed successfully, false if it was not present or an error occurred.
-typedef bool (*HandlerUnregisterService)(NON_NULL Handler, Uuid, String);
+// Returns the success state of the unregistration.
+typedef ServiceError (*HandlerUnregisterService)(Uuid, Uuid, String);
 
 // Service function to register a new event.
 // The first    argument is the json schema the events arguments have to satisfy.
 // The second   argument is the json schema the events response has to satisfy.
 // The third    argument has to be the plugins uuid.
 // The forth    argument is the events name. This will be prefixed by this plugins name.
-// returns true when the event was added successfully, otherwise false.
-typedef bool (*EventRegisterService)(String, String, Uuid, String);
+// Returns the success state of the registration.
+typedef ServiceError (*EventRegisterService)(String, String, Uuid, String);
 
 // Service function to unregister an event.
 // The first    argument has to be the plugins uuid.
 // The second   argument is the events name to be removed.
-// returns true when the event was removed successfully, false if it was not present or an error occurred.
-typedef bool (*EventUnregisterService)(Uuid, String);
+// Returns the success state of the unregistration.
+typedef ServiceError (*EventUnregisterService)(Uuid, String);
+
+// Service function to trigger an event.
+// The first    argument has to be the plugins uuid.
+// The second   argument is the events name to be triggered.
+// Returns the success state of the trigger.
+typedef ServiceError (*EventTriggerService)(Uuid, String, String);
 
 // Application context that provides configuration services for the plugin to interact with the core application.
-// With a context you can register and uregister events and handlers.
+// With a context you can register, uregister and trigger events and handlers.
 typedef struct ApplicationContext {
     NON_NULL HandlerRegisterService handlerRegisterService; 
     NON_NULL HandlerUnregisterService HandlerUnregisterService;
     NON_NULL EventRegisterService eventRegisterService;
     NON_NULL EventUnregisterService EventUnregisterService;
+    NON_NULL EventTriggerService eventTriggerService;
 } ApplicationContext;
 
-NON_NULL Handler pluginMain(Uuid);
+NON_NULL HandlerFP pluginMain(Uuid);
 
 #endif

@@ -1,9 +1,9 @@
-use std::str::Utf8Error;
+use std::{hash::Hash, str::Utf8Error};
 
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::cbindings::{createString, destroyString, getLengthString, getViewString, isValidString, CHandler, CString, CUuid};
+use crate::cbindings::{createString, destroyString, getLengthString, getViewString, isValidString, CHandler, CHandlerFP, CString, CUuid, ServiceError};
 
 impl Drop for CString {
     fn drop(&mut self) {
@@ -26,12 +26,11 @@ impl CString {
         let leaked = unsafe { &mut  *Box::into_raw(boxed_str) };
         let ptr = leaked.as_ptr();
         let length = leaked.len();
-        unsafe { createString(ptr, length, Some(dropString)) }
+        unsafe { createString(ptr, length, Some(drop_string)) }
     }
 }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn dropString(str: *const u8, length: usize) {
+unsafe extern "C" fn drop_string(str: *const u8, length: usize) {
     let slice = unsafe { std::slice::from_raw_parts_mut(str as *mut u8, length)};
     let string = unsafe { std::str::from_utf8_unchecked_mut(slice)};
     let _ = unsafe { Box::from_raw(string) };
@@ -65,6 +64,23 @@ impl Copy for CUuid {
 
 }
 
+impl PartialEq for CUuid {
+    fn eq(&self, other: &Self) -> bool {
+        self.first == other.first && self.second == other.second
+    }
+}
+
+impl Hash for CUuid {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.first.hash(state);
+        self.second.hash(state);
+    }
+}
+
+impl Eq for CUuid {
+
+}
+
 pub trait OptionWrapped {
     type Unwrapped;
 }
@@ -73,5 +89,34 @@ impl<T> OptionWrapped for Option<T> {
     type Unwrapped = T;
 }
 
-pub type Handler = <CHandler as OptionWrapped>::Unwrapped;
+pub type HandlerFP = <CHandlerFP as OptionWrapped>::Unwrapped;
+
+impl CHandler {
+    pub fn new_error(error: ServiceError) -> Self {
+        Self { function: None, handler_id: CUuid::from_u64_pair((0,0)), error }
+    }
+}
+
+#[derive(Clone)]
+pub struct Handler {
+    pub function: HandlerFP,
+    pub handler_id: CUuid,
+}
+
+impl TryFrom<CHandler> for Handler {
+    type Error = ();
+
+    fn try_from(value: CHandler) -> Result<Self, Self::Error> {
+        let Some(function) = value.function else {
+            return Err(());
+        };
+        Ok(Handler { function, handler_id: value.handler_id})
+    }
+}
+
+impl From<Handler> for CHandler {
+    fn from(value: Handler) -> Self {
+        Self { function: Some(value.function), handler_id: value.handler_id, error: ServiceError::Success }
+    }
+}
 

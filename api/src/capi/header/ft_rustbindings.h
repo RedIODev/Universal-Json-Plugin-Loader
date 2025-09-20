@@ -6,6 +6,4 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-void dropString(const uint8_t *str, uintptr_t length);
-
 #endif  /* FT_RUSTBINDINGS_H */
