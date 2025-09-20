@@ -39,6 +39,12 @@ typedef long double f80;
 #define FLOAT_80
 #endif
 
+#ifdef FLOAT_128
+typedef f128 fmax;
+#elif defined FLOAT_80
+typedef f80 fmax;
+#endif
+
 #define OUT
 #define NON_NULL
 

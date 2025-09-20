@@ -1,5 +1,7 @@
 use std::{env, path::PathBuf, str::FromStr};
 
+use bindgen_helpers::Renamer;
+
 fn main() {
 
  println!("cargo::rerun-if-changed=src/capi/header/ft_api.h");
@@ -14,10 +16,16 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         .expect("Unable to generate rust -> c bindings!")
         .write_to_file("src/capi/header/ft_rustbindings.h");
 
-    let bindings = bindgen::Builder::default()
+    let mut renamer = Renamer::new(false);
+    renamer.rename_item("Handler", "CHandler");
+    renamer.rename_item("String", "CString");
+    renamer.rename_item("Uuid", "CUuid");
+
+    let bindings = bindgen_helpers::Builder::default()
             .header("./src/capi/header/ft_api.h")
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            .parse_callbacks(Box::new(bindgen_helpers::CargoCallbacks::new()))
             .derive_copy(false)
+            .parse_callbacks(Box::new(renamer))
             .generate()
             .expect("Unable to generate c -> rust bindings!");
     let out_path = PathBuf::from_str("./src/cbindings.rs")

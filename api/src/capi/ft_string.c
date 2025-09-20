@@ -6,7 +6,7 @@
 
 #define STRING_CAST *(String*) &
 
-void no_op(const c8 *ignored) {}
+void no_op(const u8 *ignored, usize len) {}
 
 typedef struct {
     StringDealloc dealloc_fn;
@@ -29,6 +29,7 @@ void destroyString(String *string) {
         return;
     }
     String_impl* str = (String_impl*) string;
+    usize tmp_length = str->length;
     str->length = 0;
     const c8 *tmp_data = str->data;
     StringDealloc tmp_fn = str->dealloc_fn;
@@ -37,7 +38,7 @@ void destroyString(String *string) {
     if (tmp_fn == NULL) {
         return;
     }
-    tmp_fn(tmp_data);
+    tmp_fn(tmp_data, tmp_length);
 }
 
 bool isValidString(const String *string) {

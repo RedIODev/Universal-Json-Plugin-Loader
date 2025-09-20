@@ -3,7 +3,7 @@
 
 #include "ft_types.h"
 
-typedef void (*StringDealloc)(const c8 *);
+typedef void (*StringDealloc)(const c8 *, usize);
 
 // Immutable owning String type with variable allocator and fixed length.
 // Takes ownership of the passed buffer.

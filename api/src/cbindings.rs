@@ -321,35 +321,36 @@ pub type c32 = char32_t;
 pub type f32_ = f32;
 pub type f64_ = f64;
 pub type f128 = u128;
-pub type StringDealloc = ::std::option::Option<unsafe extern "C" fn(arg1: *const c8)>;
+pub type fmax = f128;
+pub type StringDealloc = ::std::option::Option<unsafe extern "C" fn(arg1: *const c8, arg2: usize_)>;
 #[repr(C)]
 #[derive(Debug)]
-pub struct String {
+pub struct CString {
     pub internal: [u8_; 24usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of String"][::std::mem::size_of::<String>() - 24usize];
-    ["Alignment of String"][::std::mem::align_of::<String>() - 1usize];
-    ["Offset of field: String::internal"][::std::mem::offset_of!(String, internal) - 0usize];
+    ["Size of CString"][::std::mem::size_of::<CString>() - 24usize];
+    ["Alignment of CString"][::std::mem::align_of::<CString>() - 1usize];
+    ["Offset of field: CString::internal"][::std::mem::offset_of!(CString, internal) - 0usize];
 };
 unsafe extern "C" {
-    pub fn createString(arg1: *const c8, arg2: usize_, arg3: StringDealloc) -> String;
+    pub fn createString(arg1: *const c8, arg2: usize_, arg3: StringDealloc) -> CString;
 }
 unsafe extern "C" {
-    pub fn destroyString(arg1: *mut String);
+    pub fn destroyString(arg1: *mut CString);
 }
 unsafe extern "C" {
-    pub fn isValidString(arg1: *const String) -> bool;
+    pub fn isValidString(arg1: *const CString) -> bool;
 }
 unsafe extern "C" {
-    pub fn getCharString(arg1: *const String, arg2: usize_) -> c8;
+    pub fn getCharString(arg1: *const CString, arg2: usize_) -> c8;
 }
 unsafe extern "C" {
-    pub fn getLengthString(arg1: *const String) -> usize_;
+    pub fn getLengthString(arg1: *const CString) -> usize_;
 }
 unsafe extern "C" {
-    pub fn getViewString(arg1: *const String, arg2: usize_, arg3: usize_) -> *const c8;
+    pub fn getViewString(arg1: *const CString, arg2: usize_, arg3: usize_) -> *const c8;
 }
 pub type wchar_t = ::std::os::raw::c_int;
 #[repr(C)]
@@ -369,39 +370,55 @@ const _: () = {
     ["Offset of field: max_align_t::__clang_max_align_nonce2"]
         [::std::mem::offset_of!(max_align_t, __clang_max_align_nonce2) - 16usize];
 };
-#[repr(C)]
-#[derive(Debug)]
-pub struct ApplicationContext {
-    pub i: ::std::os::raw::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ApplicationContext"][::std::mem::size_of::<ApplicationContext>() - 4usize];
-    ["Alignment of ApplicationContext"][::std::mem::align_of::<ApplicationContext>() - 4usize];
-    ["Offset of field: ApplicationContext::i"]
-        [::std::mem::offset_of!(ApplicationContext, i) - 0usize];
-};
 pub type ContextSupplier = ::std::option::Option<unsafe extern "C" fn() -> ApplicationContext>;
-pub type Handler = ::std::option::Option<
-    unsafe extern "C" fn(arg1: ContextSupplier, arg2: String, arg3: *mut String) -> bool,
+pub type CHandler = ::std::option::Option<
+    unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString, arg3: *mut CString) -> bool,
 >;
 #[repr(C)]
 #[derive(Debug)]
-pub struct Uuid {
-    pub lower: u64_,
-    pub higher: u64_,
+pub struct CUuid {
+    pub first: u64_,
+    pub second: u64_,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of Uuid"][::std::mem::size_of::<Uuid>() - 16usize];
-    ["Alignment of Uuid"][::std::mem::align_of::<Uuid>() - 8usize];
-    ["Offset of field: Uuid::lower"][::std::mem::offset_of!(Uuid, lower) - 0usize];
-    ["Offset of field: Uuid::higher"][::std::mem::offset_of!(Uuid, higher) - 8usize];
+    ["Size of CUuid"][::std::mem::size_of::<CUuid>() - 16usize];
+    ["Alignment of CUuid"][::std::mem::align_of::<CUuid>() - 8usize];
+    ["Offset of field: CUuid::first"][::std::mem::offset_of!(CUuid, first) - 0usize];
+    ["Offset of field: CUuid::second"][::std::mem::offset_of!(CUuid, second) - 8usize];
 };
 pub type HandlerRegisterService =
-    ::std::option::Option<unsafe extern "C" fn(arg1: Handler, arg2: Uuid, arg3: String) -> bool>;
+    ::std::option::Option<unsafe extern "C" fn(arg1: CHandler, arg2: CUuid, arg3: CString) -> bool>;
+pub type HandlerUnregisterService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CHandler, arg2: CUuid, arg3: CString) -> bool>;
+pub type EventRegisterService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CString, arg2: CString, arg3: CUuid, arg4: CString) -> bool,
+>;
+pub type EventUnregisterService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> bool>;
+#[repr(C)]
+#[derive(Debug)]
+pub struct ApplicationContext {
+    pub handlerRegisterService: HandlerRegisterService,
+    pub HandlerUnregisterService: HandlerUnregisterService,
+    pub eventRegisterService: EventRegisterService,
+    pub EventUnregisterService: EventUnregisterService,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ApplicationContext"][::std::mem::size_of::<ApplicationContext>() - 32usize];
+    ["Alignment of ApplicationContext"][::std::mem::align_of::<ApplicationContext>() - 8usize];
+    ["Offset of field: ApplicationContext::handlerRegisterService"]
+        [::std::mem::offset_of!(ApplicationContext, handlerRegisterService) - 0usize];
+    ["Offset of field: ApplicationContext::HandlerUnregisterService"]
+        [::std::mem::offset_of!(ApplicationContext, HandlerUnregisterService) - 8usize];
+    ["Offset of field: ApplicationContext::eventRegisterService"]
+        [::std::mem::offset_of!(ApplicationContext, eventRegisterService) - 16usize];
+    ["Offset of field: ApplicationContext::EventUnregisterService"]
+        [::std::mem::offset_of!(ApplicationContext, EventUnregisterService) - 24usize];
+};
 unsafe extern "C" {
-    pub fn pluginMain(arg1: HandlerRegisterService, arg2: Uuid);
+    pub fn pluginMain(arg1: CUuid) -> CHandler;
 }
 pub type __int128_t = i128;
 pub type __uint128_t = u128;
