@@ -20,9 +20,11 @@ impl CString {
         let ptr = unsafe { getViewString(self, 0, len)};
         Ok(std::str::from_utf8(unsafe { std::slice::from_raw_parts(ptr, len) })?)
     }
+}
 
-    pub fn from_string(string: std::string::String) -> Self {
-        let boxed_str = string.into_boxed_str();
+impl<T> From<T> for CString where T: Into<Box<str>> {
+    fn from(value: T) -> Self {
+        let boxed_str: Box<str> = value.into();
         let leaked = unsafe { &mut  *Box::into_raw(boxed_str) };
         let ptr = leaked.as_ptr();
         let length = leaked.len();

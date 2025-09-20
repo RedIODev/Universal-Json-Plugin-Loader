@@ -2,13 +2,16 @@ use std::sync::{LazyLock, Mutex};
 
 use anyhow::Result;
 
-use crate::{loader::Loader, runtime::Runtime};
+use crate::{governor::Governor, loader::Loader};
 
 mod loader;
 mod runtime;
+mod governor;
 
 pub fn main() -> Result<()> {
-    unsafe { LOADER.lock().expect("").load_library("filename") }
+    unsafe { Loader::load_library( "filename")? };
+    GGL.lock().unwrap().init(); 
+    Ok(())
 }
 
-pub static LOADER: LazyLock<Mutex<Loader>> = LazyLock::new(|| Mutex::new(Loader::new(Runtime::new())));
+pub static GGL: LazyLock<Mutex<Governor>> = LazyLock::new(|| Mutex::new(Governor::new()));

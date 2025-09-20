@@ -40,7 +40,7 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     bindings.write_to_file(out_path)
             .expect("Couldn't write bindings!");
 
-//     cc::Build::new()
-//         .file("src/capi/ft_string.c")
-//         .compile("ft_c_bin");
+    cc::Build::new()
+        .file("src/capi/ft_string.c")
+        .compile("ft_c_bin");
 }

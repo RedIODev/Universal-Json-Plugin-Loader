@@ -5,7 +5,7 @@ use jsonschema::Validator;
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::LOADER;
+use crate::GGL;
 
 
 pub struct Runtime {
@@ -20,14 +20,19 @@ impl Runtime {
 
     pub fn init(&self) {
         
+        unsafe { event_trigger(self.core_id, "core:init".into(), format!("").into()); }
+    }
+
+    pub fn core_id(&self) -> CUuid {
+        self.core_id
     }
 
 
-    pub(crate) fn register_core_events(&self) -> HashMap<Box<str>, Event> {
+    pub fn register_core_events(&self) -> HashMap<Box<str>, Event> {
         
         let mut hashmap = HashMap::new();
         hashmap.insert("core:init".into(), Event::new(Runtime::schema_from_file(include_str!("../event/init.json")),self.core_id));
-        
+        hashmap.insert("core:event".into(), Event::new(Runtime::schema_from_file(include_str!("../event/event.json")), self.core_id));
         hashmap
     }
 
@@ -51,116 +56,127 @@ unsafe extern "C" fn handler_register(handler_fp: CHandlerFP, plugin_id: CUuid, 
     let Some(function) = handler_fp else {
         return CHandler::new_error(ServiceError::InvalidInput0);
     };
-    let Ok(mut loader) = LOADER.lock() else {
-        return CHandler::new_error(ServiceError::CoreInternalError);
-    };
-    let events = &mut loader.events;
     let Ok(event_name) = event_name.as_str() else {
         return CHandler::new_error(ServiceError::InvalidInput2);
     };
-    let Some(event) = events.get_mut(event_name) else {
-        return CHandler::new_error(ServiceError::NotFound);
-    };
-
     let handler = Handler { function, handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair())};
-    if !event.handlers.insert(StoredHandler { handler: handler.clone(), plugin_id }) {
-        return  CHandler::new_error(ServiceError::Duplicate);
-    }
+    { // Mutex start
+        let Ok(mut gov) = GGL.lock() else {
+            return CHandler::new_error(ServiceError::CoreInternalError);
+        };
+        let Some(event) = gov.events_mut().get_mut(event_name) else {
+            return CHandler::new_error(ServiceError::NotFound);
+        };
+        
+        if !event.handlers.insert(StoredHandler { handler: handler.clone(), plugin_id }) {
+            return  CHandler::new_error(ServiceError::Duplicate);
+        }
+    } // Mutex end
+
     handler.into()
 }
 
 unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id: CUuid, event_name: CString) -> ServiceError {
-    let Ok(mut loader) = LOADER.lock() else {
-        return  ServiceError::CoreInternalError;
-    };
-    let events = &mut loader.events;
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput2;
     };
-    let Some(event) = events.get_mut(event_name) else {
-        return  ServiceError::NotFound;
-    };
-    let Some(handler) = event.handlers.iter().find(|h| h.handler.handler_id == handler_id) else {
-        return ServiceError::NotFound;
-    };
-    if handler.plugin_id != plugin_id {
-        return  ServiceError::Unauthorized;
-    }
+    { // Mutex start
+        let Ok(mut gov) = GGL.lock() else {
+            return  ServiceError::CoreInternalError;
+        };
+        let Some(event) = gov.events_mut().get_mut(event_name) else {
+            return  ServiceError::NotFound;
+        };
+        let Some(handler) = event.handlers.iter().find(|h| h.handler.handler_id == handler_id) else {
+            return ServiceError::NotFound;
+        };
+        if handler.plugin_id != plugin_id {
+            return  ServiceError::Unauthorized;
+        }
+        event.handlers.remove(&handler.clone());
+    } // Mutex end
 
-    event.handlers.remove(&handler.clone());
     ServiceError::Success
 }
 
 unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, event_name: CString) -> ServiceError {
-    let Ok(mut loader) = LOADER.lock() else {
-        return  ServiceError::CoreInternalError;
+    let Ok(event_name) = event_name.as_str() else {
+        return ServiceError::InvalidInput2;
     };
-    let events = &mut loader.events;
     let Ok(argument_schema) = argument_schema.as_str() else {
         return ServiceError::InvalidInput0;
     };
     let Ok(validator) = jsonschema::validator_for(&json!(argument_schema)) else {
         return ServiceError::InvalidInput0;
     };
-    let Ok(event_name) = event_name.as_str() else {
-        return ServiceError::InvalidInput2;
-    };
     let event = Event::new(validator, plugin_id);
-    if events.contains_key(event_name) {
-        return  ServiceError::Duplicate;
-    }
-    events.insert(event_name.into(), event);
+    
+    let core_id = { // Mutex start
+        let Ok(mut gov) = GGL.try_lock() else {
+            return ServiceError::CoreInternalError;
+        };
+        let events = gov.events_mut();
+        if events.contains_key(event_name) {
+            return ServiceError::Duplicate;
+        }
+        events.insert(event_name.into(), event);
+        gov.core_id()
+    }; // Mutex end
+    unsafe { event_trigger(core_id, "core:event".into(), format!("").into()) }; // locks mutex
     ServiceError::Success
 }
 
 unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: CString) -> ServiceError {
-    let Ok(mut loader) = LOADER.lock() else {
-        return ServiceError::CoreInternalError;
-    };
-    let events = &mut loader.events;
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput1;
     };
-    let Entry::Occupied(o) = events.entry(event_name.into()) else {
-        return ServiceError::NotFound;
-    };
-    if o.get().plugin_id != plugin_id {
-        return ServiceError::Unauthorized;
-    }
-    o.remove();
+    { // Mutex start
+        let Ok(mut gov) = GGL.lock() else {
+            return ServiceError::CoreInternalError;
+        };
+        let Entry::Occupied(o) = gov.events_mut().entry(event_name.into()) else {
+            return ServiceError::NotFound;
+        };
+        if o.get().plugin_id != plugin_id {
+            return ServiceError::Unauthorized;
+        }
+        o.remove();
+
+    } // Mutex end
     ServiceError::Success
 }
 
 unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, arguments: CString) -> ServiceError {
-    let Ok(loader) = LOADER.lock() else {
-        return ServiceError::CoreInternalError;
-    };
-    let events = &loader.events;
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput1;
     };
-    let Some(event) = events.get(event_name) else {
-        return ServiceError::NotFound;
-    };
-    if event.plugin_id != plugin_id {
-        return ServiceError::Unauthorized;
-    }
     let Ok(arguments) = arguments.as_str() else {
         return ServiceError::InvalidInput2;
     };
-    if let Err(_) = event.argument_validator.validate(&json!(arguments)) {
-        return ServiceError::InvalidInput2;
-    }
-    for handler in &event.handlers {
-        let function = handler.handler.function;
-        unsafe { function(Some(context_supplier), CString::from_string(arguments.to_string()))}
+    let funcs: Vec<_> = { // Mutex start
+        let Ok(gov) = GGL.lock() else {
+            return ServiceError::CoreInternalError;
+        };
+        let Some(event) = gov.events().get(event_name) else {
+            return ServiceError::NotFound;
+        };
+        if event.plugin_id != plugin_id {
+            return ServiceError::Unauthorized;
+        }
+        if let Err(_) = event.argument_validator.validate(&json!(arguments)) {
+            return ServiceError::InvalidInput2;
+        }
+        event.handlers.iter().map(|h|h.handler.function).collect()
+    }; // Mutex end
+    for func in funcs {
+        unsafe { func(Some(context_supplier), arguments.into())} // might lock mutex
     }
     ServiceError::Success
 }
 
 
-pub(crate) struct Event {
-    pub(crate) handlers: HashSet<StoredHandler>,
+pub struct Event {
+    pub handlers: HashSet<StoredHandler>,
     argument_validator: Validator,
     plugin_id: CUuid
 }
@@ -173,7 +189,7 @@ impl Event {
 
 
 #[derive(Clone)]
-pub(crate) struct StoredHandler {
+pub struct StoredHandler {
     handler: Handler,
     plugin_id: CUuid
 }

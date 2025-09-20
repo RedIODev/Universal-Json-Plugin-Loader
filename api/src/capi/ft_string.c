@@ -6,7 +6,7 @@
 
 #define STRING_CAST *(String*) &
 
-void no_op(const u8 *ignored, usize len) {}
+void no_op(const u8 *, usize) {}
 
 typedef struct {
     StringDealloc dealloc_fn;
