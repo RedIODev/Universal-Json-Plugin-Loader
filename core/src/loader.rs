@@ -1,11 +1,12 @@
 use std::{collections::HashMap, error::Error, ops::DerefMut, str::Utf8Error, sync::{Arc, LazyLock, Mutex, MutexGuard}};
 
 use derive_more::Display;
+use jsonschema::Validator;
 use libloading::{Library, Symbol};
 
 use anyhow::Result;
 
-use finance_together_api::capi::cbindings::{destroyString, getLengthString, getViewString, isValidString, u128_, ContextSupplier, Handler, HandlerRegisterService, String, Uuid};
+use finance_together_api::cbindings::{destroyString, getLengthString, getViewString, isValidString, u128_, ContextSupplier, Handler, HandlerRegisterService, String, Uuid};
 use thiserror::Error;
 
 pub struct Loader {
@@ -29,7 +30,12 @@ impl Loader {
     }
 }
 
-static HANDLER: LazyLock<Mutex<HashMap<Box<str>, Vec<StoredHandler>>>> = LazyLock::new(Mutex::default);
+static HANDLER: LazyLock<Mutex<HashMap<Box<str>, Event>>> = LazyLock::new(Mutex::default);
+
+struct Event {
+    handlers: Vec<StoredHandler>,
+    validator: Validator
+}
 
 struct StoredHandler {
     handler: unsafe extern "C" fn(arg1: ContextSupplier, arg2: String, arg3: *mut String) -> bool,
@@ -50,24 +56,8 @@ pub unsafe extern "C" fn handlerRegister(handler: Handler, plugin_id: Uuid, even
     let Some(event) = events.get_mut(&event_name) else {
         return false;
     };
-    event.push(StoredHandler { handler, plugin_id });
+    event.handlers.push(StoredHandler { handler, plugin_id });
     true
 }
 
-//properly include subproject
-
-fn convert_string(mut string:String) -> Result<Box<str>> {
-    if unsafe {!isValidString(&string)} {
-        return Err(InvalidString.into());
-    }
-    let len = unsafe { getLengthString(&string) };
-    let ptr = unsafe { getViewString(&string, 0, len)};
-    let rust_str = std::str::from_utf8(unsafe { std::slice::from_raw_parts(ptr, len) })?;
-    let rust_str = rust_str.into();
-    unsafe { destroyString(&mut string)};
-    Ok(rust_str)
-}
-
-#[derive(Error, Display, Debug)]
-struct InvalidString;
 

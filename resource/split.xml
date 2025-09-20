@@ -1,7 +1,0 @@
-<trn:split>
-      <split:id type="guid">{}</split:id>
-      <split:reconciled-state>n</split:reconciled-state>
-      <split:value>{}</split:value>
-      <split:quantity>{}</split:quantity>
-      <split:account type="guid">{}</split:account>
-</trn:split>

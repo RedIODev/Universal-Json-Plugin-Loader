@@ -2,7 +2,7 @@ use std::{env, path::PathBuf, str::FromStr};
 
 fn main() {
 
- println!("cargo::rerun-if-changed=src/capi/api.rs");
+ println!("cargo::rerun-if-changed=src/capi/header/ft_api.h");
 
 let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
@@ -17,10 +17,10 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let bindings = bindgen::Builder::default()
             .header("./src/capi/header/ft_api.h")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-            .//no copy derive
+            .derive_copy(false)
             .generate()
             .expect("Unable to generate c -> rust bindings!");
-    let out_path = PathBuf::from_str("./src/capi/cbindings.rs")
+    let out_path = PathBuf::from_str("./src/cbindings.rs")
             .expect("Project structure incorrect");
     bindings.write_to_file(out_path)
             .expect("Couldn't write bindings!");
