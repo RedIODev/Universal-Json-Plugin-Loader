@@ -6,4 +6,10 @@ edition = "2024"
 [dependencies]
 libloading = "0.8.8"
 tokio = "1.47.1"
-finance-together-api = {version = "0.1.0", path = "../rediocash-api"}
+lazy_thread_local = "0.1.2"
+uuid = {version = "1.18.1", features = ["v4"]}
+anyhow = "1.0.100"
+thiserror = "2.0.16"
+derive_more = {version = "2.0.1", features = ["display"]}
+
+finance-together-api = {version = "0.1.0", path = "finance-together-api"}

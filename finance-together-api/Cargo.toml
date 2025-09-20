@@ -1,0 +1,17 @@
+[package]
+name = "finance-together-api"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[features]
+
+
+[build-dependencies]
+bindgen = "0.72.1"
+cbindgen = "0.29.0"
+cc = "1.2.38"
+
+[lib]
+crate-type = ["staticlib", "lib"]
