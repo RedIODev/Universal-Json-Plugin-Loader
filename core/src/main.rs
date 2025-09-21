@@ -1,4 +1,4 @@
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, RwLock};
 
 use anyhow::Result;
 
@@ -15,4 +15,4 @@ pub fn main() -> Result<()> {
     Ok(())
 }
 
-pub static GGL: LazyLock<Mutex<Governor>> = LazyLock::new(|| Mutex::new(Governor::new()));
+pub static GGL: LazyLock<RwLock<Governor>> = LazyLock::new(|| RwLock::new(Governor::new()));

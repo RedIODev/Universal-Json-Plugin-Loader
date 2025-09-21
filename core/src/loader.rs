@@ -29,7 +29,7 @@ impl Loader {
             return Err(LoadError::NullInit.into());
         };
         { // Mutex start
-            let Ok(mut gov) = GGL.lock() else {
+            let Ok(mut gov) = GGL.write() else {
                 return Err(LoadError::Internal.into());
             };
             let init = gov.events_mut().get_mut("core:init").expect("core events missing!");

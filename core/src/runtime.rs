@@ -19,7 +19,7 @@ impl Runtime {
     }
 
     pub fn init() -> Result<(), ()> { //make ServiceError Error compatible
-        let core_id = GGL.lock().unwrap().core_id();
+        let core_id = GGL.read().unwrap().core_id();
         let result = unsafe { event_trigger(core_id, "core:init".into(), json!({"version": "0.1.0"}).to_string().into()) };
         if result == ServiceError::Success {
             return Ok(());
@@ -64,7 +64,7 @@ unsafe extern "C" fn handler_register(handler_fp: CHandlerFP, plugin_id: CUuid, 
     };
     let handler = Handler { function, handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair())};
     { // Mutex start
-        let Ok(mut gov) = GGL.lock() else {
+        let Ok(mut gov) = GGL.write() else {
             return CHandler::new_error(ServiceError::CoreInternalError);
         };
         let Some(event) = gov.events_mut().get_mut(event_name) else {
@@ -84,7 +84,7 @@ unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id: CUuid, eve
         return ServiceError::InvalidInput2;
     };
     { // Mutex start
-        let Ok(mut gov) = GGL.lock() else {
+        let Ok(mut gov) = GGL.write() else {
             return  ServiceError::CoreInternalError;
         };
         let Some(event) = gov.events_mut().get_mut(event_name) else {
@@ -118,7 +118,7 @@ unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, 
     let event = Event::new(validator, plugin_id);
     
     let core_id = { // Mutex start
-        let Ok(mut gov) = GGL.try_lock() else {
+        let Ok(mut gov) = GGL.write() else {
             return ServiceError::CoreInternalError;
         };
         let events = gov.events_mut();
@@ -137,7 +137,7 @@ unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: CString) -> 
         return ServiceError::InvalidInput1;
     };
     { // Mutex start
-        let Ok(mut gov) = GGL.lock() else {
+        let Ok(mut gov) = GGL.write() else {
             return ServiceError::CoreInternalError;
         };
         let Entry::Occupied(o) = gov.events_mut().entry(event_name.into()) else {
@@ -160,7 +160,7 @@ unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, argume
         return ServiceError::InvalidInput2;
     };
     let funcs: Vec<_> = { // Mutex start
-        let Ok(gov) = GGL.lock() else {
+        let Ok(gov) = GGL.read() else {
             return ServiceError::CoreInternalError;
         };
         let Some(event) = gov.events().get(event_name) else {
