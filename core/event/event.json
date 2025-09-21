@@ -1,0 +1,14 @@
+{
+    
+    "title": "Event-schema",
+    "description": "Defines the shape of the event args",
+    "type": "object",
+
+    "properties": {
+        "event_name": {
+            "type": "string"
+        }
+    },
+    "required": ["event_name"]
+}
+

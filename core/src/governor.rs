@@ -27,10 +27,6 @@ impl Governor {
         &mut self.events
     }
 
-    pub fn init(&self) {
-        self.runtime.init();
-    }
-
     pub fn core_id(&self) -> CUuid {
         self.runtime.core_id()
     }

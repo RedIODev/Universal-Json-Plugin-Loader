@@ -1,0 +1,13 @@
+{
+    
+    "title": "Init-schema",
+    "description": "Defines the shape of the init args",
+    "type": "object",
+
+    "properties": {
+        "version": {
+            "type": "string"
+        }
+    },
+    "required": ["version"]
+}

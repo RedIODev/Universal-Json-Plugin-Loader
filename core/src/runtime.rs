@@ -18,9 +18,13 @@ impl Runtime {
         Self { core_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()) }
     }
 
-    pub fn init(&self) {
-        
-        unsafe { event_trigger(self.core_id, "core:init".into(), format!("").into()); }
+    pub fn init() -> Result<(), ()> { //make ServiceError Error compatible
+        let core_id = GGL.lock().unwrap().core_id();
+        let result = unsafe { event_trigger(core_id, "core:init".into(), json!({"version": "0.1.0"}).to_string().into()) };
+        if result == ServiceError::Success {
+            return Ok(());
+        }
+        Err(())
     }
 
     pub fn core_id(&self) -> CUuid {
@@ -37,8 +41,7 @@ impl Runtime {
     }
 
     fn schema_from_file(file:&str) -> Validator {
-        jsonschema::validator_for(&json!(file)).expect("invalid core schema!")
-
+        jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!")).expect("invalid core schema!")
     }
 }
 
@@ -106,7 +109,10 @@ unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, 
     let Ok(argument_schema) = argument_schema.as_str() else {
         return ServiceError::InvalidInput0;
     };
-    let Ok(validator) = jsonschema::validator_for(&json!(argument_schema)) else {
+    let Ok(argument_schema) = serde_json::from_str(argument_schema) else {
+        return ServiceError::InvalidInput0;
+    };
+    let Ok(validator) = jsonschema::validator_for(&argument_schema) else {
         return ServiceError::InvalidInput0;
     };
     let event = Event::new(validator, plugin_id);
@@ -163,7 +169,10 @@ unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, argume
         if event.plugin_id != plugin_id {
             return ServiceError::Unauthorized;
         }
-        if let Err(_) = event.argument_validator.validate(&json!(arguments)) {
+        let Ok(arguments) = serde_json::from_str(arguments) else {
+            return  ServiceError::InvalidInput2;
+        };
+        if let Err(_) = event.argument_validator.validate(&arguments) {
             return ServiceError::InvalidInput2;
         }
         event.handlers.iter().map(|h|h.handler.function).collect()
