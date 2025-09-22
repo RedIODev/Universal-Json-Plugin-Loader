@@ -322,6 +322,35 @@ pub type f32_ = f32;
 pub type f64_ = f64;
 pub type f128 = u128;
 pub type fmax = f128;
+pub type ContextSupplier = ::std::option::Option<unsafe extern "C" fn() -> ApplicationContext>;
+#[repr(C)]
+#[derive(Debug)]
+pub struct CUuid {
+    pub first: u64_,
+    pub second: u64_,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of CUuid"][::std::mem::size_of::<CUuid>() - 16usize];
+    ["Alignment of CUuid"][::std::mem::align_of::<CUuid>() - 8usize];
+    ["Offset of field: CUuid::first"][::std::mem::offset_of!(CUuid, first) - 0usize];
+    ["Offset of field: CUuid::second"][::std::mem::offset_of!(CUuid, second) - 8usize];
+};
+#[repr(u32)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ServiceError {
+    Success = 0,
+    CoreInternalError = 1,
+    InvalidInput0 = 2,
+    InvalidInput1 = 3,
+    InvalidInput2 = 4,
+    InvalidInput3 = 5,
+    InvalidInput4 = 6,
+    NotFound = 7,
+    Unauthorized = 8,
+    Duplicate = 9,
+    PluginUninit = 10,
+}
 pub type StringDealloc = ::std::option::Option<unsafe extern "C" fn(arg1: *const c8, arg2: usize_)>;
 #[repr(C)]
 #[derive(Debug)]
@@ -352,6 +381,72 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn getViewString(arg1: *const CString, arg2: usize_, arg3: usize_) -> *const c8;
 }
+pub type CEventHandlerFP =
+    ::std::option::Option<unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString)>;
+#[repr(C)]
+#[derive(Debug)]
+pub struct CEventHandler {
+    pub function: CEventHandlerFP,
+    pub handler_id: CUuid,
+    pub error: ServiceError,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of CEventHandler"][::std::mem::size_of::<CEventHandler>() - 32usize];
+    ["Alignment of CEventHandler"][::std::mem::align_of::<CEventHandler>() - 8usize];
+    ["Offset of field: CEventHandler::function"]
+        [::std::mem::offset_of!(CEventHandler, function) - 0usize];
+    ["Offset of field: CEventHandler::handler_id"]
+        [::std::mem::offset_of!(CEventHandler, handler_id) - 8usize];
+    ["Offset of field: CEventHandler::error"]
+        [::std::mem::offset_of!(CEventHandler, error) - 24usize];
+};
+pub type HandlerRegisterService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CEventHandlerFP, arg2: CUuid, arg3: CString) -> CEventHandler,
+>;
+pub type HandlerUnregisterService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CUuid, arg2: CUuid, arg3: CString) -> ServiceError,
+>;
+pub type EventRegisterService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> ServiceError,
+>;
+pub type EventUnregisterService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;
+pub type EventTriggerService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> ServiceError,
+>;
+#[repr(C)]
+#[derive(Debug)]
+pub struct EndpointResponse {
+    pub response: CString,
+    pub error: ServiceError,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of EndpointResponse"][::std::mem::size_of::<EndpointResponse>() - 28usize];
+    ["Alignment of EndpointResponse"][::std::mem::align_of::<EndpointResponse>() - 4usize];
+    ["Offset of field: EndpointResponse::response"]
+        [::std::mem::offset_of!(EndpointResponse, response) - 0usize];
+    ["Offset of field: EndpointResponse::error"]
+        [::std::mem::offset_of!(EndpointResponse, error) - 24usize];
+};
+pub type CRequestHandlerFP = ::std::option::Option<
+    unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString) -> EndpointResponse,
+>;
+pub type EndpointRegisterService = ::std::option::Option<
+    unsafe extern "C" fn(
+        arg1: CString,
+        arg2: CString,
+        arg3: CUuid,
+        arg4: CString,
+        arg5: CRequestHandlerFP,
+    ) -> ServiceError,
+>;
+pub type EndpointUnregisterService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;
+pub type EndpointRequestService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> EndpointResponse,
+>;
 pub type wchar_t = ::std::os::raw::c_int;
 #[repr(C)]
 #[repr(align(16))]
@@ -370,79 +465,21 @@ const _: () = {
     ["Offset of field: max_align_t::__clang_max_align_nonce2"]
         [::std::mem::offset_of!(max_align_t, __clang_max_align_nonce2) - 16usize];
 };
-pub type ContextSupplier = ::std::option::Option<unsafe extern "C" fn() -> ApplicationContext>;
-pub type CHandlerFP =
-    ::std::option::Option<unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString)>;
-#[repr(C)]
-#[derive(Debug)]
-pub struct CUuid {
-    pub first: u64_,
-    pub second: u64_,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of CUuid"][::std::mem::size_of::<CUuid>() - 16usize];
-    ["Alignment of CUuid"][::std::mem::align_of::<CUuid>() - 8usize];
-    ["Offset of field: CUuid::first"][::std::mem::offset_of!(CUuid, first) - 0usize];
-    ["Offset of field: CUuid::second"][::std::mem::offset_of!(CUuid, second) - 8usize];
-};
-#[repr(u32)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum ServiceError {
-    Success = 0,
-    CoreInternalError = 1,
-    InvalidInput0 = 2,
-    InvalidInput1 = 3,
-    InvalidInput2 = 4,
-    InvalidInput3 = 5,
-    InvalidInput4 = 6,
-    NotFound = 7,
-    Unauthorized = 8,
-    Duplicate = 9,
-    PluginUninit = 10,
-}
-#[repr(C)]
-#[derive(Debug)]
-pub struct CHandler {
-    pub function: CHandlerFP,
-    pub handler_id: CUuid,
-    pub error: ServiceError,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of CHandler"][::std::mem::size_of::<CHandler>() - 32usize];
-    ["Alignment of CHandler"][::std::mem::align_of::<CHandler>() - 8usize];
-    ["Offset of field: CHandler::function"][::std::mem::offset_of!(CHandler, function) - 0usize];
-    ["Offset of field: CHandler::handler_id"]
-        [::std::mem::offset_of!(CHandler, handler_id) - 8usize];
-    ["Offset of field: CHandler::error"][::std::mem::offset_of!(CHandler, error) - 24usize];
-};
-pub type HandlerRegisterService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CHandlerFP, arg2: CUuid, arg3: CString) -> CHandler,
->;
-pub type HandlerUnregisterService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CUuid, arg2: CUuid, arg3: CString) -> ServiceError,
->;
-pub type EventRegisterService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> ServiceError,
->;
-pub type EventUnregisterService =
-    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;
-pub type EventTriggerService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> ServiceError,
->;
 #[repr(C)]
 #[derive(Debug)]
 pub struct ApplicationContext {
     pub handlerRegisterService: HandlerRegisterService,
     pub HandlerUnregisterService: HandlerUnregisterService,
     pub eventRegisterService: EventRegisterService,
-    pub EventUnregisterService: EventUnregisterService,
+    pub eventUnregisterService: EventUnregisterService,
     pub eventTriggerService: EventTriggerService,
+    pub endpointRegisterService: EndpointRegisterService,
+    pub endpointUnregisterService: EndpointUnregisterService,
+    pub endpointRequestService: EndpointRequestService,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ApplicationContext"][::std::mem::size_of::<ApplicationContext>() - 40usize];
+    ["Size of ApplicationContext"][::std::mem::size_of::<ApplicationContext>() - 64usize];
     ["Alignment of ApplicationContext"][::std::mem::align_of::<ApplicationContext>() - 8usize];
     ["Offset of field: ApplicationContext::handlerRegisterService"]
         [::std::mem::offset_of!(ApplicationContext, handlerRegisterService) - 0usize];
@@ -450,13 +487,19 @@ const _: () = {
         [::std::mem::offset_of!(ApplicationContext, HandlerUnregisterService) - 8usize];
     ["Offset of field: ApplicationContext::eventRegisterService"]
         [::std::mem::offset_of!(ApplicationContext, eventRegisterService) - 16usize];
-    ["Offset of field: ApplicationContext::EventUnregisterService"]
-        [::std::mem::offset_of!(ApplicationContext, EventUnregisterService) - 24usize];
+    ["Offset of field: ApplicationContext::eventUnregisterService"]
+        [::std::mem::offset_of!(ApplicationContext, eventUnregisterService) - 24usize];
     ["Offset of field: ApplicationContext::eventTriggerService"]
         [::std::mem::offset_of!(ApplicationContext, eventTriggerService) - 32usize];
+    ["Offset of field: ApplicationContext::endpointRegisterService"]
+        [::std::mem::offset_of!(ApplicationContext, endpointRegisterService) - 40usize];
+    ["Offset of field: ApplicationContext::endpointUnregisterService"]
+        [::std::mem::offset_of!(ApplicationContext, endpointUnregisterService) - 48usize];
+    ["Offset of field: ApplicationContext::endpointRequestService"]
+        [::std::mem::offset_of!(ApplicationContext, endpointRequestService) - 56usize];
 };
 unsafe extern "C" {
-    pub fn pluginMain(arg1: CUuid) -> CHandlerFP;
+    pub fn pluginMain(arg1: CUuid) -> CEventHandlerFP;
 }
 pub type __int128_t = i128;
 pub type __uint128_t = u128;

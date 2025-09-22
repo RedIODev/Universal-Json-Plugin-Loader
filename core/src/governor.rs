@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use finance_together_api::cbindings::CUuid;
 use libloading::Library;
 
-use crate::{loader::Loader, runtime::{Event, Runtime}};
+use crate::{loader::Loader, runtime::{event::{register_core_events, Event}, Runtime}};
 
 pub type Events = HashMap<Box<str>, Event>;
 
@@ -16,7 +16,7 @@ pub struct Governor {
 impl Governor {
     pub fn new() -> Self {
         let runtime = Runtime::new();
-        Self { loader: Loader::new(), events: runtime.register_core_events(), runtime }
+        Self { loader: Loader::new(), events: register_core_events(runtime.core_id()), runtime }
     }
 
     pub fn events(&self) -> &Events {

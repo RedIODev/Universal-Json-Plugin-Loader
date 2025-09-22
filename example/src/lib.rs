@@ -1,8 +1,8 @@
-use finance_together_api::cbindings::{CHandlerFP, CString, CUuid, ContextSupplier};
+use finance_together_api::cbindings::{CEventHandlerFP, CString, CUuid, ContextSupplier};
 
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn pluginMain(uuid: CUuid) -> CHandlerFP {
+pub unsafe extern "C" fn pluginMain(uuid: CUuid) -> CEventHandlerFP {
     println!("Main: Test from plugin! {:?}", uuid);
     Some(init_test)
 }

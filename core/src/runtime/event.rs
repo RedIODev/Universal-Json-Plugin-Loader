@@ -1,85 +1,89 @@
 use std::{collections::{hash_map::Entry, HashMap, HashSet}, hash::Hash};
 
-use finance_together_api::{cbindings::{ApplicationContext, CHandler, CHandlerFP, CString, CUuid, ServiceError}, Handler};
+use finance_together_api::{cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError}, EventHandler};
 use jsonschema::Validator;
-use serde_json::json;
 use uuid::Uuid;
 
-use crate::GGL;
+use crate::{runtime::context_supplier, GGL};
 
-
-pub struct Runtime {
-    core_id: CUuid
+pub struct Event {
+    pub handlers: HashSet<StoredEventHandler>,
+    argument_validator: Validator,
+    plugin_id: CUuid
 }
 
-impl Runtime {
-    
-    pub fn new() -> Self {
-        Self { core_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()) }
+impl Event {
+    pub fn new(argument_validator: Validator, plugin_id: CUuid) -> Self {
+        Self { handlers: HashSet::new(), argument_validator, plugin_id }
     }
+}
 
-    pub fn init() -> Result<(), ()> { //make ServiceError Error compatible
-        let core_id = GGL.read().unwrap().core_id();
-        let result = unsafe { event_trigger(core_id, "core:init".into(), json!({"version": "0.1.0"}).to_string().into()) };
-        if result == ServiceError::Success {
-            return Ok(());
-        }
-        Err(())
+
+#[derive(Clone)]
+pub struct StoredEventHandler {
+    handler: EventHandler,
+    plugin_id: CUuid
+}
+
+impl Hash for StoredEventHandler {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.plugin_id.hash(state);
     }
+}
 
-    pub fn core_id(&self) -> CUuid {
-        self.core_id
+impl PartialEq for StoredEventHandler {
+    fn eq(&self, other: &Self) -> bool {
+        self.plugin_id == other.plugin_id
     }
+}
+
+impl Eq for StoredEventHandler {}
+
+impl StoredEventHandler {
+    pub fn new(handler: EventHandler, plugin_id: CUuid) -> Self {
+        Self { handler, plugin_id }
+    }
+}
 
 
-    pub fn register_core_events(&self) -> HashMap<Box<str>, Event> {
+    pub fn register_core_events(core_id: CUuid) -> HashMap<Box<str>, Event> {
         
         let mut hashmap = HashMap::new();
-        hashmap.insert("core:init".into(), Event::new(Runtime::schema_from_file(include_str!("../event/init.json")),self.core_id));
-        hashmap.insert("core:event".into(), Event::new(Runtime::schema_from_file(include_str!("../event/event.json")), self.core_id));
+        hashmap.insert("core:init".into(), Event::new(schema_from_file(include_str!("../../event/init.json")),core_id));
+        hashmap.insert("core:event".into(), Event::new(schema_from_file(include_str!("../../event/event.json")), core_id));
         hashmap
     }
 
     fn schema_from_file(file:&str) -> Validator {
         jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!")).expect("invalid core schema!")
     }
-}
 
-unsafe extern "C" fn context_supplier() -> ApplicationContext {
-    ApplicationContext { 
-        handlerRegisterService: Some(handler_register), 
-        HandlerUnregisterService: Some(handler_unregister), 
-        eventRegisterService: Some(event_register), 
-        EventUnregisterService: Some(event_unregister), 
-        eventTriggerService: Some(event_trigger) 
-    }
-}
 
-unsafe extern "C" fn handler_register(handler_fp: CHandlerFP, plugin_id: CUuid, event_name: CString) -> CHandler {
+pub(super) unsafe extern "C" fn handler_register(handler_fp: CEventHandlerFP, plugin_id: CUuid, event_name: CString) -> CEventHandler {
     let Some(function) = handler_fp else {
-        return CHandler::new_error(ServiceError::InvalidInput0);
+        return CEventHandler::new_error(ServiceError::InvalidInput0);
     };
     let Ok(event_name) = event_name.as_str() else {
-        return CHandler::new_error(ServiceError::InvalidInput2);
+        return CEventHandler::new_error(ServiceError::InvalidInput2);
     };
-    let handler = Handler { function, handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair())};
+    let handler = EventHandler { function, handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair())};
     { // Mutex start
         let Ok(mut gov) = GGL.write() else {
-            return CHandler::new_error(ServiceError::CoreInternalError);
+            return CEventHandler::new_error(ServiceError::CoreInternalError);
         };
         let Some(event) = gov.events_mut().get_mut(event_name) else {
-            return CHandler::new_error(ServiceError::NotFound);
+            return CEventHandler::new_error(ServiceError::NotFound);
         };
         
-        if !event.handlers.insert(StoredHandler { handler: handler.clone(), plugin_id }) {
-            return  CHandler::new_error(ServiceError::Duplicate);
+        if !event.handlers.insert(StoredEventHandler { handler: handler.clone(), plugin_id }) {
+            return  CEventHandler::new_error(ServiceError::Duplicate);
         }
     } // Mutex end
 
     handler.into()
 }
 
-unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id: CUuid, event_name: CString) -> ServiceError {
+pub(super) unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id: CUuid, event_name: CString) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput2;
     };
@@ -102,7 +106,7 @@ unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id: CUuid, eve
     ServiceError::Success
 }
 
-unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, event_name: CString) -> ServiceError {
+pub(super) unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, event_name: CString) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput2;
     };
@@ -132,7 +136,7 @@ unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, 
     ServiceError::Success
 }
 
-unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: CString) -> ServiceError {
+pub(super) unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: CString) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput1;
     };
@@ -152,7 +156,7 @@ unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: CString) -> 
     ServiceError::Success
 }
 
-unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, arguments: CString) -> ServiceError {
+pub unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, arguments: CString) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput1;
     };
@@ -183,42 +187,3 @@ unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, argume
     ServiceError::Success
 }
 
-
-pub struct Event {
-    pub handlers: HashSet<StoredHandler>,
-    argument_validator: Validator,
-    plugin_id: CUuid
-}
-
-impl Event {
-    pub fn new(argument_validator: Validator, plugin_id: CUuid) -> Self {
-        Self { handlers: HashSet::new(), argument_validator, plugin_id }
-    }
-}
-
-
-#[derive(Clone)]
-pub struct StoredHandler {
-    handler: Handler,
-    plugin_id: CUuid
-}
-
-impl Hash for StoredHandler {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.plugin_id.hash(state);
-    }
-}
-
-impl PartialEq for StoredHandler {
-    fn eq(&self, other: &Self) -> bool {
-        self.plugin_id == other.plugin_id
-    }
-}
-
-impl Eq for StoredHandler {}
-
-impl StoredHandler {
-    pub fn new(handler: Handler, plugin_id: CUuid) -> Self {
-        Self { handler, plugin_id }
-    }
-}

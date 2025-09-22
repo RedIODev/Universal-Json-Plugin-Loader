@@ -3,7 +3,7 @@ use std::{hash::Hash, str::Utf8Error};
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::cbindings::{createString, destroyString, getLengthString, getViewString, isValidString, CHandler, CHandlerFP, CString, CUuid, ServiceError};
+use crate::cbindings::{createString, destroyString, getLengthString, getViewString, isValidString, CEventHandlerFP, CEventHandler, CString, CUuid, ServiceError};
 
 impl Drop for CString {
     fn drop(&mut self) {
@@ -91,33 +91,33 @@ impl<T> OptionWrapped for Option<T> {
     type Unwrapped = T;
 }
 
-pub type HandlerFP = <CHandlerFP as OptionWrapped>::Unwrapped;
+pub type EventHandlerFP = <CEventHandlerFP as OptionWrapped>::Unwrapped;
 
-impl CHandler {
+impl CEventHandler {
     pub fn new_error(error: ServiceError) -> Self {
         Self { function: None, handler_id: CUuid::from_u64_pair((0,0)), error }
     }
 }
 
 #[derive(Clone)]
-pub struct Handler {
-    pub function: HandlerFP,
+pub struct EventHandler {
+    pub function: EventHandlerFP,
     pub handler_id: CUuid,
 }
 
-impl TryFrom<CHandler> for Handler {
+impl TryFrom<CEventHandler> for EventHandler {
     type Error = ();
 
-    fn try_from(value: CHandler) -> Result<Self, Self::Error> {
+    fn try_from(value: CEventHandler) -> Result<Self, Self::Error> {
         let Some(function) = value.function else {
             return Err(());
         };
-        Ok(Handler { function, handler_id: value.handler_id})
+        Ok(EventHandler { function, handler_id: value.handler_id})
     }
 }
 
-impl From<Handler> for CHandler {
-    fn from(value: Handler) -> Self {
+impl From<EventHandler> for CEventHandler {
+    fn from(value: EventHandler) -> Self {
         Self { function: Some(value.function), handler_id: value.handler_id, error: ServiceError::Success }
     }
 }

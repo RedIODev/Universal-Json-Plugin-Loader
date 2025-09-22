@@ -17,14 +17,15 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         .write_to_file("src/capi/header/ft_rustbindings.h");
 
     let mut renamer = Renamer::new(false);
-    renamer.rename_item("Handler", "CHandler");
-    renamer.rename_item("HandlerFP", "CHandlerFP");
+    renamer.rename_item("EventHandler", "CEventHandler");
+    renamer.rename_item("EventHandlerFP", "CEventHandlerFP");
+    renamer.rename_item("RequestHandlerFP", "CRequestHandlerFP");
     renamer.rename_item("String", "CString");
     renamer.rename_item("Uuid", "CUuid");
     rename_enum!(
         renamer,
         "ServiceError" => "ServiceError",
-        remove: "_SERVICE$"
+        remove: "^SERVICE_"
     );
 
     let bindings = bindgen_helpers::Builder::default()
