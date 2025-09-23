@@ -1,10 +1,13 @@
 
 #include "header/ft_string.h"
+#include "header/ft_list.h"
 #include <stddef.h>
 #include <string.h>
 #include <assert.h>
 
 #define STRING_CAST *(String*) &
+
+CREATE_LIST_TYPE_IMPL(String)
 
 void no_op(const u8 *, usize) {}
 

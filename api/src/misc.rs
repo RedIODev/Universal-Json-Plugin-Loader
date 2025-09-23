@@ -1,9 +1,9 @@
-use std::{hash::Hash, str::Utf8Error};
+use std::{error::Error, hash::Hash, str::Utf8Error};
 
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::cbindings::{createString, destroyString, getLengthString, getViewString, isValidString, CEventHandlerFP, CEventHandler, CString, CUuid, ServiceError};
+use crate::cbindings::{createString, destroyListString, destroyString, getLengthString, getViewString, isValidString, CEventHandler, CEventHandlerFP, CString, CUuid, List_String, ServiceError};
 
 impl Drop for CString {
     fn drop(&mut self) {
@@ -36,6 +36,12 @@ unsafe extern "C" fn drop_string(str: *const u8, length: usize) {
     let slice = unsafe { std::slice::from_raw_parts_mut(str as *mut u8, length)};
     let string = unsafe { std::str::from_utf8_unchecked_mut(slice)};
     let _ = unsafe { Box::from_raw(string) };
+}
+
+impl Drop for List_String {
+    fn drop(&mut self) {
+        unsafe { destroyListString(self) };
+    }
 }
 
 
@@ -122,3 +128,25 @@ impl From<EventHandler> for CEventHandler {
     }
 }
 
+impl Error for ServiceError {
+
+}
+
+impl std::fmt::Display for ServiceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<ServiceError> for Result<(), ServiceError> {
+    fn from(value: ServiceError) -> Self {
+        if value == ServiceError::Success {
+            Ok(())
+        } else { Err(value) }
+    }
+}
+impl ServiceError {
+    pub fn result(self) -> Result<(), ServiceError> {
+        Result::from(self)
+    }
+}

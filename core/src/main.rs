@@ -10,7 +10,7 @@ mod governor;
 
 pub fn main() -> Result<()> {
     unsafe { Loader::load_library( "libexample.so")? };
-    Runtime::init();
+    Runtime::init()?;
 
     Ok(())
 }

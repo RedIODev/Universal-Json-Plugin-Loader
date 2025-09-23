@@ -2,6 +2,9 @@
 #define FT_STRING_H
 
 #include "ft_types.h"
+#include "ft_list.h"
+
+
 
 typedef void (*StringDealloc)(const c8 *, usize);
 
@@ -34,5 +37,7 @@ usize getLengthString(const String *);
 // Gets a view from a given String, start index (inclusive) and end index (exclusive). 
 // The view is NOT null terminated.
 const c8 *getViewString(const String *, usize, usize);
+
+CREATE_LIST_TYPE_HEADER(String)
 
 #endif

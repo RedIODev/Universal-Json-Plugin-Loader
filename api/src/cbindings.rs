@@ -381,6 +381,43 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn getViewString(arg1: *const CString, arg2: usize_, arg3: usize_) -> *const c8;
 }
+pub type StringListDeallocFP =
+    ::std::option::Option<unsafe extern "C" fn(arg1: *mut CString, arg2: u32_)>;
+#[repr(C)]
+#[derive(Debug)]
+pub struct List_String {
+    pub dealloc_fn: StringListDeallocFP,
+    pub data: *mut CString,
+    pub length: u32_,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of List_String"][::std::mem::size_of::<List_String>() - 24usize];
+    ["Alignment of List_String"][::std::mem::align_of::<List_String>() - 8usize];
+    ["Offset of field: List_String::dealloc_fn"]
+        [::std::mem::offset_of!(List_String, dealloc_fn) - 0usize];
+    ["Offset of field: List_String::data"][::std::mem::offset_of!(List_String, data) - 8usize];
+    ["Offset of field: List_String::length"][::std::mem::offset_of!(List_String, length) - 16usize];
+};
+unsafe extern "C" {
+    pub fn isValidListString(arg1: *const List_String) -> bool;
+}
+unsafe extern "C" {
+    pub fn createListString(
+        data: *mut CString,
+        length: u32_,
+        dealloc_fn: StringListDeallocFP,
+    ) -> List_String;
+}
+unsafe extern "C" {
+    pub fn destroyListString(list: *mut List_String);
+}
+unsafe extern "C" {
+    pub fn getListString(list: *mut List_String, index: u32_) -> *mut CString;
+}
+unsafe extern "C" {
+    pub fn emptyListString() -> List_String;
+}
 pub type CEventHandlerFP =
     ::std::option::Option<unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString)>;
 #[repr(C)]
@@ -497,6 +534,25 @@ const _: () = {
         [::std::mem::offset_of!(ApplicationContext, endpointUnregisterService) - 48usize];
     ["Offset of field: ApplicationContext::endpointRequestService"]
         [::std::mem::offset_of!(ApplicationContext, endpointRequestService) - 56usize];
+};
+#[repr(C)]
+#[derive(Debug)]
+pub struct PluginInfo {
+    pub name: CString,
+    pub version: CString,
+    pub dependencies: List_String,
+    pub init_handler: CEventHandlerFP,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of PluginInfo"][::std::mem::size_of::<PluginInfo>() - 80usize];
+    ["Alignment of PluginInfo"][::std::mem::align_of::<PluginInfo>() - 8usize];
+    ["Offset of field: PluginInfo::name"][::std::mem::offset_of!(PluginInfo, name) - 0usize];
+    ["Offset of field: PluginInfo::version"][::std::mem::offset_of!(PluginInfo, version) - 24usize];
+    ["Offset of field: PluginInfo::dependencies"]
+        [::std::mem::offset_of!(PluginInfo, dependencies) - 48usize];
+    ["Offset of field: PluginInfo::init_handler"]
+        [::std::mem::offset_of!(PluginInfo, init_handler) - 72usize];
 };
 unsafe extern "C" {
     pub fn pluginMain(arg1: CUuid) -> CEventHandlerFP;

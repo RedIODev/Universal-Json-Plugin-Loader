@@ -125,11 +125,14 @@ pub(super) unsafe extern "C" fn event_register(argument_schema: CString, plugin_
         let Ok(mut gov) = GGL.write() else {
             return ServiceError::CoreInternalError;
         };
+        let Some(plugin_name) = gov.plugins().get(&plugin_id).map(|p|p.name.clone()) else {
+            return ServiceError::CoreInternalError;
+        };
         let events = gov.events_mut();
         if events.contains_key(event_name) {
             return ServiceError::Duplicate;
         }
-        events.insert(event_name.into(), event);
+        events.insert(format!("{plugin_name}:{event_name}").into(), event);
         gov.core_id()
     }; // Mutex end
     unsafe { event_trigger(core_id, "core:event".into(), format!("").into()) }; // locks mutex

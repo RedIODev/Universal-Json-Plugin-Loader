@@ -1,7 +1,8 @@
 pub mod event;
 pub mod endpoint;
 
-use finance_together_api::cbindings::{ApplicationContext, CUuid, ServiceError};
+use finance_together_api::cbindings::{ApplicationContext, CUuid};
+use anyhow::Result;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -18,13 +19,10 @@ impl Runtime {
         Self { core_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()) }
     }
 
-    pub fn init() -> Result<(), ()> { //make ServiceError Error compatible
+    pub fn init() -> Result<()> {
         let core_id = GGL.read().unwrap().core_id();
-        let result = unsafe { event_trigger(core_id, "core:init".into(), json!({"version": "0.1.0"}).to_string().into()) };
-        if result == ServiceError::Success {
-            return Ok(());
-        }
-        Err(())
+        unsafe { event_trigger(core_id, "core:init".into(), json!({"version": "0.1.0"}).to_string().into()) }.result()?;
+        Ok(())
     }
 
     pub fn core_id(&self) -> CUuid {

@@ -4,6 +4,7 @@
 #include "ft_util.h"
 #include "ft_event.h"
 #include "ft_endpoint.h"
+#include "ft_string.h"
 #include <stddef.h>
 
 // Application context that provides configuration services for the plugin to interact with the core application.
@@ -18,6 +19,13 @@ typedef struct ApplicationContext {
     NON_NULL EndpointUnregisterService endpointUnregisterService;
     NON_NULL EndpointRequestService endpointRequestService;
 } ApplicationContext;
+
+typedef struct {
+    String name;
+    String version;
+    List_String dependencies;
+    EventHandlerFP init_handler;
+} PluginInfo;
 
 NON_NULL EventHandlerFP pluginMain(Uuid);
 

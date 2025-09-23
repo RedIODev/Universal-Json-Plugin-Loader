@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use finance_together_api::cbindings::CUuid;
-use libloading::Library;
 
-use crate::{loader::Loader, runtime::{event::{register_core_events, Event}, Runtime}};
+use crate::{loader::{Loader, Plugin}, runtime::{event::{register_core_events, Event}, Runtime}};
 
 pub type Events = HashMap<Box<str>, Event>;
 
@@ -31,7 +30,11 @@ impl Governor {
         self.runtime.core_id()
     }
 
-    pub fn libs_mut(&mut self) -> &mut Vec<Library> {
-        self.loader.libs_mut()
+    pub fn plugins_mut(&mut self) -> &mut HashMap<CUuid, Plugin> {
+        self.loader.plugins_mut()
+    }
+
+    pub fn plugins(&self) -> &HashMap<CUuid, Plugin> {
+        self.loader.plugins()
     }
 }
