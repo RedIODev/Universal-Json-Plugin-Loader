@@ -346,10 +346,14 @@ pub enum ServiceError {
     InvalidInput2 = 4,
     InvalidInput3 = 5,
     InvalidInput4 = 6,
-    NotFound = 7,
-    Unauthorized = 8,
-    Duplicate = 9,
-    PluginUninit = 10,
+    InvalidInput5 = 7,
+    InvalidInput6 = 8,
+    InvalidInput7 = 9,
+    NotFound = 10,
+    Unauthorized = 11,
+    Duplicate = 12,
+    PluginUninit = 13,
+    InvalidResponse = 14,
 }
 pub type StringDealloc = ::std::option::Option<unsafe extern "C" fn(arg1: *const c8, arg2: usize_)>;
 #[repr(C)]
@@ -481,9 +485,8 @@ pub type EndpointRegisterService = ::std::option::Option<
 >;
 pub type EndpointUnregisterService =
     ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;
-pub type EndpointRequestService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> EndpointResponse,
->;
+pub type EndpointRequestService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CString, arg2: CString) -> EndpointResponse>;
 pub type wchar_t = ::std::os::raw::c_int;
 #[repr(C)]
 #[repr(align(16))]

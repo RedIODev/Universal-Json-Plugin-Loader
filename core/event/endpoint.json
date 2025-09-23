@@ -1,0 +1,14 @@
+{
+    
+    "title": "Endpoint-schema",
+    "description": "Defines the shape of the event args",
+    "type": "object",
+
+    "properties": {
+        "endpoint_name": {
+            "type": "string"
+        }
+    },
+    "required": ["endpoint_name"]
+}
+

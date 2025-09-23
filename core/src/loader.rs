@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::Display;
 use libloading::{Library, Symbol};
@@ -19,7 +19,7 @@ pub struct Loader {
 #[derive(Debug)]
 pub struct Plugin {
     _lib: Library,
-    pub name: Box<str>,
+    pub name: Arc<str>,
     pub version: Box<str>
 }
 

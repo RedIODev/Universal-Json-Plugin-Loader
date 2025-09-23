@@ -1,28 +1,37 @@
-use std::{collections::{hash_map::Entry, HashMap, HashSet}, hash::Hash};
+use std::{
+    collections::{HashSet, hash_map::Entry},
+    hash::Hash,
+};
 
-use finance_together_api::{cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError}, EventHandler};
+use finance_together_api::{
+    EventHandler,
+    cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError},
+};
 use jsonschema::Validator;
 use uuid::Uuid;
 
-use crate::{runtime::context_supplier, GGL};
+use crate::{GGL, governor::Events, runtime::context_supplier};
 
 pub struct Event {
     pub handlers: HashSet<StoredEventHandler>,
     argument_validator: Validator,
-    plugin_id: CUuid
+    plugin_id: CUuid,
 }
 
 impl Event {
     pub fn new(argument_validator: Validator, plugin_id: CUuid) -> Self {
-        Self { handlers: HashSet::new(), argument_validator, plugin_id }
+        Self {
+            handlers: HashSet::new(),
+            argument_validator,
+            plugin_id,
+        }
     }
 }
-
 
 #[derive(Clone)]
 pub struct StoredEventHandler {
     handler: EventHandler,
-    plugin_id: CUuid
+    plugin_id: CUuid,
 }
 
 impl Hash for StoredEventHandler {
@@ -45,60 +54,90 @@ impl StoredEventHandler {
     }
 }
 
+pub fn register_core_events(core_id: CUuid) -> Events {
+    let mut events = Events::new();
+    events.insert(
+        "core:init".into(),
+        Event::new(
+            schema_from_file(include_str!("../../event/init.json")),
+            core_id,
+        ),
+    );
+    events.insert(
+        "core:event".into(),
+        Event::new(
+            schema_from_file(include_str!("../../event/event.json")),
+            core_id,
+        ),
+    );
+    events
+}
 
-    pub fn register_core_events(core_id: CUuid) -> HashMap<Box<str>, Event> {
-        
-        let mut hashmap = HashMap::new();
-        hashmap.insert("core:init".into(), Event::new(schema_from_file(include_str!("../../event/init.json")),core_id));
-        hashmap.insert("core:event".into(), Event::new(schema_from_file(include_str!("../../event/event.json")), core_id));
-        hashmap
-    }
+fn schema_from_file(file: &str) -> Validator {
+    jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!"))
+        .expect("invalid core schema!")
+}
 
-    fn schema_from_file(file:&str) -> Validator {
-        jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!")).expect("invalid core schema!")
-    }
-
-
-pub(super) unsafe extern "C" fn handler_register(handler_fp: CEventHandlerFP, plugin_id: CUuid, event_name: CString) -> CEventHandler {
+pub(super) unsafe extern "C" fn handler_register(
+    handler_fp: CEventHandlerFP,
+    plugin_id: CUuid,
+    event_name: CString,
+) -> CEventHandler {
     let Some(function) = handler_fp else {
         return CEventHandler::new_error(ServiceError::InvalidInput0);
     };
     let Ok(event_name) = event_name.as_str() else {
         return CEventHandler::new_error(ServiceError::InvalidInput2);
     };
-    let handler = EventHandler { function, handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair())};
-    { // Mutex start
+    let handler = EventHandler {
+        function,
+        handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()),
+    };
+    {
+        // Mutex start
         let Ok(mut gov) = GGL.write() else {
             return CEventHandler::new_error(ServiceError::CoreInternalError);
         };
         let Some(event) = gov.events_mut().get_mut(event_name) else {
             return CEventHandler::new_error(ServiceError::NotFound);
         };
-        
-        if !event.handlers.insert(StoredEventHandler { handler: handler.clone(), plugin_id }) {
-            return  CEventHandler::new_error(ServiceError::Duplicate);
+
+        if !event.handlers.insert(StoredEventHandler {
+            handler: handler.clone(),
+            plugin_id,
+        }) {
+            return CEventHandler::new_error(ServiceError::Duplicate);
         }
     } // Mutex end
 
     handler.into()
 }
 
-pub(super) unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id: CUuid, event_name: CString) -> ServiceError {
+pub(super) unsafe extern "C" fn handler_unregister(
+    handler_id: CUuid,
+    plugin_id: CUuid,
+    event_name: CString,
+) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput2;
     };
-    { // Mutex start
+    {
+        // Mutex start
         let Ok(mut gov) = GGL.write() else {
-            return  ServiceError::CoreInternalError;
+            return ServiceError::CoreInternalError;
         };
         let Some(event) = gov.events_mut().get_mut(event_name) else {
-            return  ServiceError::NotFound;
+            return ServiceError::NotFound;
         };
-        let Some(handler) = event.handlers.iter().find(|h| h.handler.handler_id == handler_id) else {
+        let Some(handler) = event
+            .handlers
+            .iter()
+            .find(|h| h.handler.handler_id == handler_id)
+        else {
             return ServiceError::NotFound;
         };
         if handler.plugin_id != plugin_id {
-            return  ServiceError::Unauthorized;
+            return ServiceError::Unauthorized;
         }
         event.handlers.remove(&handler.clone());
     } // Mutex end
@@ -106,7 +145,11 @@ pub(super) unsafe extern "C" fn handler_unregister(handler_id: CUuid, plugin_id:
     ServiceError::Success
 }
 
-pub(super) unsafe extern "C" fn event_register(argument_schema: CString, plugin_id: CUuid, event_name: CString) -> ServiceError {
+pub(super) unsafe extern "C" fn event_register(
+    argument_schema: CString,
+    plugin_id: CUuid,
+    event_name: CString,
+) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput2;
     };
@@ -120,12 +163,13 @@ pub(super) unsafe extern "C" fn event_register(argument_schema: CString, plugin_
         return ServiceError::InvalidInput0;
     };
     let event = Event::new(validator, plugin_id);
-    
-    let core_id = { // Mutex start
+
+    let core_id = {
+        // Mutex start
         let Ok(mut gov) = GGL.write() else {
             return ServiceError::CoreInternalError;
         };
-        let Some(plugin_name) = gov.plugins().get(&plugin_id).map(|p|p.name.clone()) else {
+        let Some(plugin_name) = gov.plugins().get(&plugin_id).map(|p| p.name.clone()) else {
             return ServiceError::CoreInternalError;
         };
         let events = gov.events_mut();
@@ -139,11 +183,15 @@ pub(super) unsafe extern "C" fn event_register(argument_schema: CString, plugin_
     ServiceError::Success
 }
 
-pub(super) unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: CString) -> ServiceError {
+pub(super) unsafe extern "C" fn event_unregister(
+    plugin_id: CUuid,
+    event_name: CString,
+) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput1;
     };
-    { // Mutex start
+    {
+        // Mutex start
         let Ok(mut gov) = GGL.write() else {
             return ServiceError::CoreInternalError;
         };
@@ -154,19 +202,23 @@ pub(super) unsafe extern "C" fn event_unregister(plugin_id: CUuid, event_name: C
             return ServiceError::Unauthorized;
         }
         o.remove();
-
     } // Mutex end
     ServiceError::Success
 }
 
-pub unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, arguments: CString) -> ServiceError {
+pub unsafe extern "C" fn event_trigger(
+    plugin_id: CUuid,
+    event_name: CString,
+    arguments: CString,
+) -> ServiceError {
     let Ok(event_name) = event_name.as_str() else {
         return ServiceError::InvalidInput1;
     };
     let Ok(arguments) = arguments.as_str() else {
         return ServiceError::InvalidInput2;
     };
-    let funcs: Vec<_> = { // Mutex start
+    let funcs: Vec<_> = {
+        // Mutex start
         let Ok(gov) = GGL.read() else {
             return ServiceError::CoreInternalError;
         };
@@ -177,16 +229,15 @@ pub unsafe extern "C" fn event_trigger(plugin_id: CUuid, event_name: CString, ar
             return ServiceError::Unauthorized;
         }
         let Ok(arguments) = serde_json::from_str(arguments) else {
-            return  ServiceError::InvalidInput2;
+            return ServiceError::InvalidInput2;
         };
         if let Err(_) = event.argument_validator.validate(&arguments) {
             return ServiceError::InvalidInput2;
         }
-        event.handlers.iter().map(|h|h.handler.function).collect()
+        event.handlers.iter().map(|h| h.handler.function).collect()
     }; // Mutex end
     for func in funcs {
-        unsafe { func(Some(context_supplier), arguments.into())} // might lock mutex
+        unsafe { func(Some(context_supplier), arguments.into()) } // might lock mutex
     }
     ServiceError::Success
 }
-

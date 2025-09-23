@@ -28,10 +28,9 @@ typedef ServiceError (*EndpointRegisterService)(String, String, Uuid, String, Re
 typedef ServiceError (*EndpointUnregisterService)(Uuid, String);
 
 // Service function to call an endpoint.
-// The first    argument has to be the plugins uuid.
 // The second   argument is the endpoint name to be called.
 // The third    argument is the endpoints arguments.
 // Returns the response of the endpoint.
-typedef EndpointResponse (*EndpointRequestService)(Uuid, String, String);
+typedef EndpointResponse (*EndpointRequestService)(String, String);
 
 #endif

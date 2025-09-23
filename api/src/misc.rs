@@ -3,7 +3,7 @@ use std::{error::Error, hash::Hash, str::Utf8Error};
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::cbindings::{createString, destroyListString, destroyString, getLengthString, getViewString, isValidString, CEventHandler, CEventHandlerFP, CString, CUuid, List_String, ServiceError};
+use crate::cbindings::{createString, destroyListString, destroyString, getLengthString, getViewString, isValidString, CEventHandler, CEventHandlerFP, CRequestHandlerFP, CString, CUuid, EndpointResponse, List_String, ServiceError};
 
 impl Drop for CString {
     fn drop(&mut self) {
@@ -99,6 +99,8 @@ impl<T> OptionWrapped for Option<T> {
 
 pub type EventHandlerFP = <CEventHandlerFP as OptionWrapped>::Unwrapped;
 
+pub type RequestHandlerFP = <CRequestHandlerFP as OptionWrapped>::Unwrapped;
+
 impl CEventHandler {
     pub fn new_error(error: ServiceError) -> Self {
         Self { function: None, handler_id: CUuid::from_u64_pair((0,0)), error }
@@ -148,5 +150,11 @@ impl From<ServiceError> for Result<(), ServiceError> {
 impl ServiceError {
     pub fn result(self) -> Result<(), ServiceError> {
         Result::from(self)
+    }
+}
+
+impl EndpointResponse {
+     pub fn new_error(error: ServiceError) -> Self {
+        Self { response: CString::from(""), error }
     }
 }
