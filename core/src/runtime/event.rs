@@ -1,16 +1,14 @@
-use std::{
-    collections::{HashSet, hash_map::Entry},
-    hash::Hash,
+use std::{ collections::{hash_map::Entry, HashMap, HashSet}, hash::Hash
 };
 
 use finance_together_api::{
-    EventHandler,
-    cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError},
+    cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError}, EventHandler, EventHandlerFP
 };
 use jsonschema::Validator;
+use topo_sort::TopoSort;
 use uuid::Uuid;
 
-use crate::{GGL, governor::Events, runtime::context_supplier};
+use crate::{governor::Events, loader::Plugin, runtime::context_supplier, GGL};
 
 pub struct Event {
     pub handlers: HashSet<StoredEventHandler>,
@@ -234,10 +232,57 @@ pub unsafe extern "C" fn event_trigger(
         if let Err(_) = event.argument_validator.validate(&arguments) {
             return ServiceError::InvalidInput2;
         }
-        event.handlers.iter().map(|h| h.handler.function).collect()
+        if event_name != "core:init" {
+            event.handlers.iter().map(|h| h.handler.function).collect() //sort by dependency graph
+        } else {
+            let Some(funcs) = sort_handlers(event.handlers.iter(), gov.plugins()) else {
+                return ServiceError::CoreInternalError;
+            };
+            funcs
+        }
     }; // Mutex end
+
     for func in funcs {
         unsafe { func(Some(context_supplier), arguments.into()) } // might lock mutex
     }
     ServiceError::Success
 }
+
+fn sort_handlers<'a>(handlers: impl Iterator<Item=&'a StoredEventHandler>, stored_plugins:&HashMap<CUuid, Plugin>) -> Option<Vec<EventHandlerFP>> {
+    let plugins = stored_plugins.values();
+    let nodes:Vec<_> = handlers.map(|handler| TopoNode::create_dependency_entry(handler, &plugins, stored_plugins)).collect::<Option<_>>()?;
+    let mut sorter = TopoSort::new();
+    for (node, deps) in nodes {
+        sorter.insert_from_set(node, deps);
+    }
+    Some(sorter.iter().map(|node| node.ok()?.0.1).collect::<Option<_>>()?)
+    
+}
+
+
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+struct TopoNode(CUuid, Option<EventHandlerFP>);
+
+impl TopoNode {
+
+    fn create_dependency_entry<'a>(handler: &StoredEventHandler, plugins: &(impl Iterator<Item=&'a Plugin> + Clone),stored_plugins:&HashMap<CUuid, Plugin>) -> Option<(TopoNode, HashSet<TopoNode>)> {
+        let plugin = stored_plugins.get(&handler.plugin_id)?;
+        let node = TopoNode(handler.plugin_id, Some(handler.handler.function));
+        let deps = plugin.dependencies.iter()
+                .map(|dep| TopoNode::find_plugin_by_name(plugins.clone(), dep))
+                .map(|dep| TopoNode::find_id_for_plugin(dep?, stored_plugins))
+                .collect::<Option<_>>()?;
+        Some((node, deps))
+    }
+
+    fn find_plugin_by_name<'a>(mut plugins: impl Iterator<Item=&'a Plugin>, name: &str) -> Option<&'a Plugin> {
+        plugins.find(|plugin| *plugin.name == *name)
+    }
+
+    fn find_id_for_plugin(plugin:&Plugin, stored_plugins:&HashMap<CUuid, Plugin>) -> Option<TopoNode> {
+        stored_plugins.iter().find_map(|(key, value)| if value.name == plugin.name {Some(TopoNode(*key, None))} else { None})
+    }
+}
+
+

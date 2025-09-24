@@ -26,11 +26,11 @@ bool isValidList##TYPE(const List_##TYPE *list) { \
     if (list == NULL) { \
         return false; \
     } \
-    return list->data != NULL && list->length != 0; \
+    return (list->data == NULL) == (list->length == 0); \
 } \
 \
 List_##TYPE createList##TYPE(TYPE *data, u32 length, TYPE##ListDeallocFP dealloc_fn) {\
-    if (data == NULL) { \
+    if (data == NULL && length != 0) { \
         return (List_##TYPE) {data: NULL, length: 1, dealloc_fn: TYPE##no_op}; \
     } \
     return (List_##TYPE) {data: data, length: length, dealloc_fn: dealloc_fn }; \

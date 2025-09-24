@@ -3,7 +3,7 @@ use std::{error::Error, hash::Hash, str::Utf8Error};
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::cbindings::{createString, destroyListString, destroyString, getLengthString, getViewString, isValidString, CEventHandler, CEventHandlerFP, CRequestHandlerFP, CString, CUuid, EndpointResponse, List_String, ServiceError};
+use crate::cbindings::{createListString, createString, destroyListString, destroyString, getLengthString, getViewString, isValidListString, isValidString, CEventHandler, CEventHandlerFP, CRequestHandlerFP, CString, CUuid, EndpointResponse, List_String, ServiceError};
 
 impl Drop for CString {
     fn drop(&mut self) {
@@ -44,7 +44,36 @@ impl Drop for List_String {
     }
 }
 
+impl List_String {
+    pub fn as_array(&self) -> Result<&[CString], InvalidList> {
+        if unsafe {!isValidListString(self)} {
+            return Err(InvalidList);
+        }
+        if self.data.is_null() {
+            return Ok(&[]);
+        }
+        let slice = unsafe { std::slice::from_raw_parts(self.data, self.length as usize)};
+        Ok(slice)
+    }
+}
 
+impl<T> From<T> for List_String where T: Into<Box<[CString]>> {
+    fn from(value: T) -> Self {
+        let boxed_list: Box<[_]> = value.into();
+        let leaked = unsafe { &mut *Box::into_raw(boxed_list)};
+        let ptr = leaked.as_mut_ptr();
+        let length = leaked.len();
+        unsafe { createListString(ptr, length as u32, Some(drop_list_string))}
+    }
+}
+
+unsafe extern "C" fn drop_list_string(list: *mut CString, length: u32) {
+    let slice = unsafe { std::slice::from_raw_parts_mut(list,  length as usize)};
+    let _ = unsafe { Box::from_raw(slice)};
+}
+
+#[derive(Error, Display, Debug)]
+pub struct InvalidList;
 
 #[derive(Error, Display, Debug)]
 pub enum StringConventError {

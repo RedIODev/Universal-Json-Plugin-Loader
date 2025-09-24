@@ -5,7 +5,7 @@ use libloading::{Library, Symbol};
 
 use anyhow::Result;
 
-use finance_together_api::{cbindings::{CUuid, PluginInfo}, EventHandler};
+use finance_together_api::{cbindings::{CString, CUuid, PluginInfo}, EventHandler};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -16,11 +16,11 @@ pub struct Loader {
     
 }
 
-#[derive(Debug)]
 pub struct Plugin {
     _lib: Library,
     pub name: Arc<str>,
-    pub version: Box<str>
+    pub version: Box<str>,
+    pub dependencies: Box<[Box<str>]>
 }
 
 impl Loader {
@@ -34,7 +34,12 @@ impl Loader {
         let main = unsafe { lib.get::<Symbol<unsafe extern "C" fn(CUuid)->PluginInfo>>(b"pluginMain")?}; 
         let plugin_id = CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair());
         let plugin_info = unsafe { main(plugin_id) };
-        let plugin = Plugin { _lib: lib, name: plugin_info.name.as_str()?.into(), version: plugin_info.version.as_str()?.into() };
+        let dependencies = plugin_info.dependencies.as_array()?
+                .iter()
+                .map(CString::as_str)
+                .map(|str| str.map(Box::from))
+                .collect::<Result<_,_>>()?;
+        let plugin = Plugin { _lib: lib, name: plugin_info.name.as_str()?.into(), version: plugin_info.version.as_str()?.into(), dependencies };
         let plugin_name = plugin.name.clone();
         let plugin_version = plugin.version.clone();
         let Some(init_handler) = plugin_info.init_handler else {
