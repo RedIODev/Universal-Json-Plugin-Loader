@@ -51,12 +51,12 @@ impl Loader {
                 return Err(LoadError::Internal.into());
             };
            
-            if gov.plugins().values().find(|p|p.name == plugin.name).is_some() {
+            if gov.loader().plugins().values().find(|p|p.name == plugin.name).is_some() {
                 return Err(LoadError::DuplicateName.into());
             }
             let init = gov.events_mut().get_mut("core:init").expect("core events missing!");
             init.handlers.insert(StoredEventHandler::new(EventHandler { function: init_handler, handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair())}, plugin_id));
-            gov.plugins_mut().insert(plugin_id, plugin);
+            gov.loader_mut().plugins_mut().insert(plugin_id, plugin);
         } // Mutex end
         println!("Loaded Plugin \"{}\" version: {}", plugin_name, plugin_version);
         Ok(())
@@ -68,6 +68,11 @@ impl Loader {
 
     pub fn plugins(&self) -> & HashMap<CUuid, Plugin> {
         & self.plugins
+    }
+
+    pub fn load_libraries() -> Result<()> {
+        unsafe { Loader::load_library( "libexample.so")? };
+        Ok(())
     }
 }
 

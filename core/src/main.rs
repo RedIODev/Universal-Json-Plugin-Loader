@@ -2,18 +2,23 @@ use std::sync::{LazyLock, RwLock};
 
 use anyhow::Result;
 
-use crate::{governor::Governor, loader::Loader, runtime::Runtime};
+use crate::{governor::Governor, loader::Loader, runtime::{PowerState, Runtime}};
 
 mod loader;
 mod runtime;
 mod governor;
 
 pub fn main() -> Result<()> {
-    unsafe { Loader::load_library( "libexample.so")? };
-    
+    Loader::load_libraries()?;
     Runtime::init()?;
+    loop {
+        match Runtime::park()? {
+            Some(PowerState::Shutdown) => return Ok(()),
+            Some(PowerState::Restart) => Runtime::restart()?,
+            Some(PowerState::Cancel) | None => continue,
+        }
 
-    Ok(())
+    }
 }
 
 pub static GGL: LazyLock<RwLock<Governor>> = LazyLock::new(|| RwLock::new(Governor::new()));

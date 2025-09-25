@@ -5,10 +5,11 @@ use finance_together_api::{
     cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError}, EventHandler, EventHandlerFP
 };
 use jsonschema::Validator;
+use serde_json::json;
 use topo_sort::TopoSort;
 use uuid::Uuid;
 
-use crate::{governor::Events, loader::Plugin, runtime::context_supplier, GGL};
+use crate::{governor::Events, loader::Plugin, runtime::{context_supplier, schema_from_file}, GGL};
 
 pub struct Event {
     pub handlers: HashSet<StoredEventHandler>,
@@ -68,13 +69,25 @@ pub fn register_core_events(core_id: CUuid) -> Events {
             core_id,
         ),
     );
+    events.insert(
+        "core:endpoint".into(),
+        Event::new(
+            schema_from_file(include_str!("../../event/endpoint.json")),
+            core_id,
+        ),
+    );
+    events.insert(
+        "core:power".into(),
+        Event::new(
+            schema_from_file(include_str!("../../event/power.json")),
+            core_id,
+        ),
+    );
+    
     events
 }
 
-fn schema_from_file(file: &str) -> Validator {
-    jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!"))
-        .expect("invalid core schema!")
-}
+
 
 pub(super) unsafe extern "C" fn handler_register(
     handler_fp: CEventHandlerFP,
@@ -154,30 +167,31 @@ pub(super) unsafe extern "C" fn event_register(
     let Ok(argument_schema) = argument_schema.as_str() else {
         return ServiceError::InvalidInput0;
     };
-    let Ok(argument_schema) = serde_json::from_str(argument_schema) else {
+    let Ok(argument_schema_json) = serde_json::from_str(argument_schema) else {
         return ServiceError::InvalidInput0;
     };
-    let Ok(validator) = jsonschema::validator_for(&argument_schema) else {
+    let Ok(validator) = jsonschema::validator_for(&argument_schema_json) else {
         return ServiceError::InvalidInput0;
     };
     let event = Event::new(validator, plugin_id);
-
+    let full_name;
     let core_id = {
         // Mutex start
         let Ok(mut gov) = GGL.write() else {
             return ServiceError::CoreInternalError;
         };
-        let Some(plugin_name) = gov.plugins().get(&plugin_id).map(|p| p.name.clone()) else {
+        let Some(plugin_name) = gov.loader().plugins().get(&plugin_id).map(|p| p.name.clone()) else {
             return ServiceError::CoreInternalError;
         };
         let events = gov.events_mut();
         if events.contains_key(event_name) {
             return ServiceError::Duplicate;
         }
-        events.insert(format!("{plugin_name}:{event_name}").into(), event);
-        gov.core_id()
+        full_name = format!("{plugin_name}:{event_name}");
+        events.insert(full_name.clone().into(), event);
+        gov.runtime().core_id()
     }; // Mutex end
-    unsafe { event_trigger(core_id, "core:event".into(), format!("").into()) }; // locks mutex
+    unsafe { event_trigger(core_id, "core:event".into(), json!({"event_name": full_name, "argument_schema": argument_schema}).to_string().into()) }; // locks mutex
     ServiceError::Success
 }
 
@@ -233,9 +247,9 @@ pub unsafe extern "C" fn event_trigger(
             return ServiceError::InvalidInput2;
         }
         if event_name != "core:init" {
-            event.handlers.iter().map(|h| h.handler.function).collect() //sort by dependency graph
+            event.handlers.iter().map(|h| h.handler.function).collect()
         } else {
-            let Some(funcs) = sort_handlers(event.handlers.iter(), gov.plugins()) else {
+            let Some(funcs) = sort_handlers(event.handlers.iter(), gov.loader().plugins()) else {
                 return ServiceError::CoreInternalError;
             };
             funcs

@@ -1,13 +1,27 @@
 {
     
     "title": "Init-schema",
-    "description": "Defines the shape of the init args",
+    "description": "Defines the shape of the event args",
     "type": "object",
 
     "properties": {
         "version": {
             "type": "string"
+        },
+        "plugins": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                }
+            }
         }
     },
-    "required": ["version"]
+    "required": ["version", "plugins"]
 }

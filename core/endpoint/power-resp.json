@@ -1,0 +1,13 @@
+{
+    "title": "Power-response-schema",
+    "description": "Defines the shape of the endpoint response",
+    "type": "object",
+
+    "properties": {
+        "canceled": {
+            "type": "boolean"
+        }
+    },
+    "required": []
+}
+

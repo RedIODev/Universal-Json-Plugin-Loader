@@ -1,4 +1,7 @@
+use std::{io::stdin, time::Duration};
+
 use finance_together_api::cbindings::{emptyListString, CString, CUuid, ContextSupplier, PluginInfo};
+use serde_json::json;
 
 
 #[unsafe(no_mangle)]
@@ -14,5 +17,10 @@ pub unsafe extern "C" fn pluginMain(uuid: CUuid) -> PluginInfo {
 }
 
 unsafe extern "C" fn init_test(context: ContextSupplier, args: CString) {
-    println!("Init: Test from plugin! Args:{}", args.as_str().expect("msg"))
+    println!("Plugin: Init: Test from plugin! Args:{}", args.as_str().expect("msg"));
+    let mut input = String::new();
+    stdin().read_line(&mut input).expect("read success");
+    let error = unsafe { context.unwrap()().endpointRequestService.unwrap()("core:power".into(), json!({"command": input.trim()}).to_string().into()) };
+    println!("Plugin: error: {:?}", error)
 }
+

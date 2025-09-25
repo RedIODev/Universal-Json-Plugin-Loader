@@ -1,0 +1,13 @@
+{
+    "title": "Power-schema",
+    "description": "Defines the shape of the event args",
+    "type": "object",
+
+    "properties": {
+        "command": {
+            "enum": ["shutdown", "restart", "cancel"]
+        }
+    },
+    "required": ["command"]
+}
+

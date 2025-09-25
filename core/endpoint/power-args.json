@@ -1,0 +1,17 @@
+{
+    "title": "Power-args-schema",
+    "description": "Defines the shape of the endpoint args",
+    "type": "object",
+
+    "properties": {
+        "command": {
+            "enum": ["shutdown", "restart", "cancel"]
+        },
+        "delay": {
+            "type": "integer",
+            "description": "Delay in ms (u32)"
+        }
+    },
+    "required": ["command"]
+}
+

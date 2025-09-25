@@ -7,8 +7,11 @@
     "properties": {
         "event_name": {
             "type": "string"
+        },
+        "argument_schema": {
+            "type": "string"
         }
     },
-    "required": ["event_name"]
+    "required": ["event_name", "argument_schema"]
 }
 
