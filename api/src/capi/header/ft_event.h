@@ -46,6 +46,8 @@ typedef ServiceError (*EventRegisterService)(String, Uuid, String);
 typedef ServiceError (*EventUnregisterService)(Uuid, String);
 
 // Service function to trigger an event.
+// Events are triggered sequentially but don't block the triggering thread.
+// Success is returned as soon as the event is scheduled successfully.
 // The first    argument has to be the plugins uuid.
 // The second   argument is the events name to be triggered.
 // The third    argument is the events arguments.

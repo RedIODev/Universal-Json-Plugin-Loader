@@ -1,19 +1,17 @@
 pub mod endpoint;
 pub mod event;
 
-use std::thread::Thread;
+use std::{num::NonZero, thread::Thread};
 
 use anyhow::Result;
-use derive_more::Display;
 use finance_together_api::cbindings::{ApplicationContext, CUuid};
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use thiserror::Error;
+use threadpool::ThreadPool;
 use uuid::Uuid;
-
 use crate::{
-    governor::Governor, loader::Loader, runtime::{
+    governor::{read_gov, write_gov, Governor}, loader::Loader, runtime::{
         endpoint::{endpoint_register, endpoint_request, endpoint_unregister},
         event::{
             event_register, event_trigger, event_unregister, handler_register, handler_unregister,
@@ -21,7 +19,7 @@ use crate::{
     }, GGL
 };
 
-#[derive(Deserialize, Serialize, PartialEq, Clone, Copy)]
+#[derive(Deserialize, Serialize, PartialEq, Clone, Copy, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum PowerState {
     Shutdown,
@@ -33,6 +31,7 @@ pub struct Runtime {
     core_id: CUuid,
     power_state: Option<PowerState>,
     main_handle: Thread,
+    event_pool: ThreadPool
 }
 
 impl Runtime {
@@ -41,6 +40,7 @@ impl Runtime {
             core_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()),
             power_state: None,
             main_handle: std::thread::current(),
+            event_pool: ThreadPool::new(std::thread::available_parallelism().unwrap_or(NonZero::<usize>::MIN).into())
         }
     }
 
@@ -49,7 +49,7 @@ impl Runtime {
         let plugins;
         {
             // Mutex start
-            let gov = GGL.read().map_err(|_| LockError)?;
+            let gov = read_gov()?;
             core_id = gov.runtime().core_id();
             plugins = gov
                 .loader()
@@ -73,7 +73,7 @@ impl Runtime {
     }
 
     pub fn restart() -> Result<()> {
-        *GGL.write().map_err(|_| LockError)? = Governor::new();
+        let _ = GGL.write().insert(Governor::new());
         Loader::load_libraries()?;
         Runtime::init()
     }
@@ -82,7 +82,7 @@ impl Runtime {
         std::thread::park();
         {
         // Mutex start
-            let mut gov = GGL.write().map_err(|_| LockError)?;
+            let mut gov = write_gov()?;
             Ok(gov.runtime_mut().check_and_reset_power())
         } // Mutex end
     }
@@ -109,8 +109,7 @@ fn schema_from_file(file: &str) -> Validator {
         .expect("invalid core schema!")
 }
 
-#[derive(Error, Debug, Display)]
-struct LockError;
+
 
 unsafe extern "C" fn context_supplier() -> ApplicationContext {
     ApplicationContext {

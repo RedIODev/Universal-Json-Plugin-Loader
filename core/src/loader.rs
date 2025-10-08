@@ -9,7 +9,7 @@ use finance_together_api::{cbindings::{CString, CUuid, PluginInfo}, EventHandler
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{runtime::event::StoredEventHandler, GGL};
+use crate::{governor::{write_gov}, runtime::event::StoredEventHandler};
 
 pub struct Loader {
     plugins: HashMap<CUuid, Plugin>,
@@ -47,9 +47,10 @@ impl Loader {
         };
 
         { // Mutex start
-            let Ok(mut gov) = GGL.write() else {
+            let Ok(mut gov) = write_gov() else {
                 return Err(LoadError::Internal.into());
             };
+            
            
             if gov.loader().plugins().values().find(|p|p.name == plugin.name).is_some() {
                 return Err(LoadError::DuplicateName.into());

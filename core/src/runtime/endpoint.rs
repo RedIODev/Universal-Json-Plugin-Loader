@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    governor::Endpoints, runtime::{context_supplier, event::event_trigger, schema_from_file, PowerState}, GGL
+    governor::{read_gov, write_gov, Endpoints}, runtime::{context_supplier, event::event_trigger, schema_from_file, PowerState}
 };
 
 pub struct Endpoint {
@@ -72,7 +72,7 @@ unsafe extern "C" fn core_power_handler(
     let core_id;
     {
         // Mutex start
-        let Ok(gov) = GGL.read() else {
+        let Ok(gov) = read_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
         core_id = gov.runtime().core_id();
@@ -100,7 +100,7 @@ unsafe extern "C" fn core_power_handler(
 
     {
         // Mutex start
-        let Ok(mut gov) = GGL.write() else {
+        let Ok(mut gov) = write_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
         if let Some(PowerState::Cancel) = gov.runtime_mut().check_and_reset_power() {
@@ -161,7 +161,7 @@ pub(super) unsafe extern "C" fn endpoint_register(
 
     let core_id = {
         // Mutex start
-        let Ok(mut gov) = GGL.write() else {
+        let Ok(mut gov) = write_gov() else {
             return ServiceError::CoreInternalError;
         };
 
@@ -194,7 +194,7 @@ pub(super) unsafe extern "C" fn endpoint_unregister(
     };
     {
         // Mutex start
-        let Ok(mut gov) = GGL.write() else {
+        let Ok(mut gov) = write_gov() else {
             return ServiceError::CoreInternalError;
         };
         let Entry::Occupied(o) = gov.endpoints_mut().entry(endpoint_name.into()) else {
@@ -221,7 +221,7 @@ pub unsafe extern "C" fn endpoint_request(
     let handler;
     {
         // Mutex start
-        let Ok(gov) = GGL.read() else {
+        let Ok(gov) = read_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
         let Some(endpoint) = gov.endpoints().get(endpoint_name) else {
@@ -249,7 +249,7 @@ pub unsafe extern "C" fn endpoint_request(
 
     {
         // Mutex start
-        let Ok(gov) = GGL.read() else {
+        let Ok(gov) = read_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
         let Some(endpoint) = gov.endpoints().get(endpoint_name) else {
