@@ -78,6 +78,10 @@ impl Runtime {
         Runtime::init()
     }
 
+    pub fn shutdown() {
+        GGL.write().take();
+    }
+
     pub fn park() -> Result<Option<PowerState>> {
         std::thread::park();
         {

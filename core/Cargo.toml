@@ -17,5 +17,6 @@ serde = {version = "1.0.226", features = ["derive"] }
 topo_sort = "0.4.0"
 threadpool = "1.8.1"
 parking_lot = "0.12.5"
+ctrlc = "3.5.0"
 
 finance-together-api = { path = "../api" }

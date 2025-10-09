@@ -29,10 +29,13 @@ pub fn write_gov<'a>() -> Result<MappedRwLockWriteGuard<'a, Governor>> {
 #[derive(Error, Debug, Display)]
 pub (crate) struct GovernorError;
 
-pub struct GovernorLifetime(PhantomData<()>);
+///
+/// Should only be created in main of this binary once.
+/// Ensures that the globally shared state is destroyed when the program ends.
+pub (super) struct GovernorLifetime(PhantomData<()>);
 
 impl GovernorLifetime {
-    pub fn new() -> Result<Self> {
+    pub (super) fn new() -> Result<Self> {
         GGL.write().get_or_insert_with(|| Governor::new());
         Ok(Self(PhantomData))
     }
@@ -42,11 +45,7 @@ impl GovernorLifetime {
 
 impl Drop for GovernorLifetime {
     fn drop(&mut self) {
-        let gov = GGL.write().take();
-        match gov {
-            Some(g) => drop(g),
-            None => panic!("GGL was dead on shutdown. Unreachable!")
-        }
+        Runtime::shutdown();
     }
 }
 
@@ -86,11 +85,5 @@ impl Governor {
 
     pub fn runtime_mut(&mut self) -> &mut Runtime {
         &mut self.runtime
-    }
-}
-
-impl Drop for Governor {
-    fn drop(&mut self) {
-        todo!()
     }
 }
