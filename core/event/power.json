@@ -6,8 +6,11 @@
     "properties": {
         "command": {
             "enum": ["shutdown", "restart", "cancel"]
+        },
+        "timestamp": {
+            "type": "string"
         }
     },
-    "required": ["command"]
+    "required": ["command", "timestamp"]
 }
 

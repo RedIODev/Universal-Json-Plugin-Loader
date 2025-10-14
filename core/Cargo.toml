@@ -19,5 +19,6 @@ atomic_enum = "0.3.0"
 arc-swap = "1.7.1"
 im = "15.1.0"
 ouroboros = "0.18.5"
+chrono = "0.4.42"
 
 finance-together-api = { path = "../api" }

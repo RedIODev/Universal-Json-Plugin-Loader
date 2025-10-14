@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use chrono::{SecondsFormat, Utc};
 use finance_together_api::{
     RequestHandlerFP,
     cbindings::{
@@ -90,11 +91,16 @@ unsafe extern "C" fn core_power_handler(
     let Some(trigger_service) = context.eventTriggerService else {
         return EndpointResponse::new_error(ServiceError::CoreInternalError);
     };
+    let utc_now = Utc::now();
+    let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
     let error = unsafe {
         trigger_service(
             core_id,
             "core:power".into(),
-            json!({"command": args.command}).to_string().into(),
+            json!({
+                "command": args.command,
+                "timestamp": timestamp
+            }).to_string().into(),
         )
     };
     if let Err(error) = error.result() {
