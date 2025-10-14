@@ -1,4 +1,4 @@
-use std::{io::stdin, time::Duration};
+use std::io::stdin;
 
 use finance_together_api::cbindings::{emptyListString, CString, CUuid, ContextSupplier, PluginInfo};
 use serde_json::json;
