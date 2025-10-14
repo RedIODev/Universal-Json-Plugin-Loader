@@ -354,6 +354,7 @@ pub enum ServiceError {
     Duplicate = 12,
     PluginUninit = 13,
     InvalidResponse = 14,
+    ShutingDown = 15,
 }
 pub type StringDealloc = ::std::option::Option<unsafe extern "C" fn(arg1: *const c8, arg2: usize_)>;
 #[repr(C)]

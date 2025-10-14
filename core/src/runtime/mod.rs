@@ -88,12 +88,18 @@ impl Runtime {
     }
 
     pub fn restart() -> Result<()> {
+        if let Some(gov) = &*GOV.load() {
+            gov.runtime().event_pool.join();
+        }
         GOV.rcu(|_| Some(Arc::new(Governor::new())));
         Loader::load_libraries()?;
         Runtime::init()
     }
 
     pub fn shutdown() {
+        if let Some(gov) = &*GOV.load() {
+            gov.runtime().event_pool.join();
+        }
         GOV.rcu(|_| None);
     }
 
@@ -113,6 +119,10 @@ impl Runtime {
     pub fn check_and_reset_power(&self) -> PowerState {
         self.power_state
             .swap(PowerState::Running, Ordering::Relaxed)
+    }
+
+    pub fn check_power(&self) -> PowerState {
+        self.power_state.load(Ordering::Relaxed)
     }
 
     pub fn set_power(&self, power_state: PowerState) {

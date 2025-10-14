@@ -77,6 +77,10 @@ unsafe extern "C" fn core_power_handler(
         let Ok(gov) = get_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
+        match gov.runtime().check_power() {
+            PowerState::Shutdown | PowerState::Restart => return EndpointResponse::new_error(ServiceError::ShutingDown),
+            _ => {}
+        }
         core_id = gov.runtime().core_id();
     } // Mutex end
     let Some(context) = context else {

@@ -11,9 +11,9 @@ use topo_sort::TopoSort;
 use uuid::Uuid;
 
 use crate::{
-    governor::{Events, get_gov},
+    governor::{get_gov, Events},
     loader::Plugin,
-    runtime::{context_supplier, schema_from_file},
+    runtime::{context_supplier, schema_from_file, PowerState},
     util::{ArcMapExt, TrueOrErr},
 };
 
@@ -264,6 +264,11 @@ pub unsafe extern "C" fn event_trigger(
         let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
+        
+        match gov.runtime().check_power() {
+            PowerState::Shutdown | PowerState::Restart => return ServiceError::ShutingDown,
+            _ => {}
+        }
         let events = gov.events().load();
         let Some(event) = events.get(event_name) else {
             return ServiceError::NotFound;
