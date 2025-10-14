@@ -1,27 +1,37 @@
 pub mod endpoint;
 pub mod event;
 
-use std::{num::NonZero, thread::Thread};
+use std::{
+    num::NonZero,
+    sync::{Arc, atomic::Ordering},
+    thread::Thread,
+};
 
+use crate::{
+    GOV,
+    governor::{Governor, get_gov},
+    loader::Loader,
+    runtime::{
+        endpoint::{endpoint_register, endpoint_request, endpoint_unregister},
+        event::{
+            event_register, event_trigger, event_unregister, handler_register, handler_unregister,
+        },
+    },
+};
 use anyhow::Result;
+use atomic_enum::atomic_enum;
 use finance_together_api::cbindings::{ApplicationContext, CUuid};
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use threadpool::ThreadPool;
 use uuid::Uuid;
-use crate::{
-    governor::{read_gov, write_gov, Governor}, loader::Loader, runtime::{
-        endpoint::{endpoint_register, endpoint_request, endpoint_unregister},
-        event::{
-            event_register, event_trigger, event_unregister, handler_register, handler_unregister,
-        },
-    }, GGL
-};
 
-#[derive(Deserialize, Serialize, PartialEq, Clone, Copy, Debug)]
+#[atomic_enum]
+#[derive(Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum PowerState {
+    Running,
     Shutdown,
     Restart,
     Cancel,
@@ -29,18 +39,22 @@ pub enum PowerState {
 
 pub struct Runtime {
     core_id: CUuid,
-    power_state: Option<PowerState>,
+    power_state: AtomicPowerState,
     main_handle: Thread,
-    event_pool: ThreadPool
+    event_pool: ThreadPool,
 }
 
 impl Runtime {
     pub fn new() -> Self {
         Self {
             core_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()),
-            power_state: None,
+            power_state: AtomicPowerState::new(PowerState::Running),
             main_handle: std::thread::current(),
-            event_pool: ThreadPool::new(std::thread::available_parallelism().unwrap_or(NonZero::<usize>::MIN).into())
+            event_pool: ThreadPool::new(
+                std::thread::available_parallelism()
+                    .unwrap_or(NonZero::<usize>::MIN)
+                    .into(),
+            ),
         }
     }
 
@@ -49,11 +63,12 @@ impl Runtime {
         let plugins;
         {
             // Mutex start
-            let gov = read_gov()?;
+            let gov = get_gov()?;
             core_id = gov.runtime().core_id();
             plugins = gov
                 .loader()
                 .plugins()
+                .load()
                 .values()
                 .map(|plugin| json!({"name": *plugin.name, "version": *plugin.version}))
                 .collect::<Vec<_>>()
@@ -73,21 +88,21 @@ impl Runtime {
     }
 
     pub fn restart() -> Result<()> {
-        let _ = GGL.write().insert(Governor::new());
+        GOV.rcu(|_| Some(Arc::new(Governor::new())));
         Loader::load_libraries()?;
         Runtime::init()
     }
 
     pub fn shutdown() {
-        GGL.write().take();
+        GOV.rcu(|_| None);
     }
 
-    pub fn park() -> Result<Option<PowerState>> {
+    pub fn park() -> Result<PowerState> {
         std::thread::park();
         {
-        // Mutex start
-            let mut gov = write_gov()?;
-            Ok(gov.runtime_mut().check_and_reset_power())
+            // Mutex start
+            let gov = get_gov()?;
+            Ok(gov.runtime().check_and_reset_power())
         } // Mutex end
     }
 
@@ -95,25 +110,23 @@ impl Runtime {
         self.core_id
     }
 
-    pub fn check_and_reset_power(&mut self) -> Option<PowerState> {
-        self.power_state.take()
+    pub fn check_and_reset_power(&self) -> PowerState {
+        self.power_state
+            .swap(PowerState::Running, Ordering::Relaxed)
     }
 
-    pub fn set_power(&mut self, power_state: PowerState){
-        self.power_state = Some(power_state);
+    pub fn set_power(&self, power_state: PowerState) {
+        self.power_state.store(power_state, Ordering::Relaxed);
         if power_state != PowerState::Cancel {
             self.main_handle.unpark();
         }
     }
 }
 
-
 fn schema_from_file(file: &str) -> Validator {
     jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!"))
         .expect("invalid core schema!")
 }
-
-
 
 unsafe extern "C" fn context_supplier() -> ApplicationContext {
     ApplicationContext {

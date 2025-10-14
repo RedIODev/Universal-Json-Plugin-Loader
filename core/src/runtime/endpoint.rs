@@ -1,4 +1,4 @@
-use std::{collections::hash_map::Entry, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use finance_together_api::{
     RequestHandlerFP,
@@ -6,18 +6,21 @@ use finance_together_api::{
         CRequestHandlerFP, CString, CUuid, ContextSupplier, EndpointResponse, ServiceError,
     },
 };
+use im::HashMap;
 use jsonschema::Validator;
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    governor::{read_gov, write_gov, Endpoints}, runtime::{context_supplier, event::event_trigger, schema_from_file, PowerState}
+    governor::{Endpoints, get_gov},
+    runtime::{PowerState, context_supplier, event::event_trigger, schema_from_file},
 };
 
+#[derive(Clone)]
 pub struct Endpoint {
     request_handler: RequestHandlerFP,
-    argument_validator: Validator,
-    response_validator: Validator,
+    argument_validator: Arc<Validator>,
+    response_validator: Arc<Validator>,
     plugin_id: CUuid,
 }
 
@@ -30,16 +33,16 @@ impl Endpoint {
     ) -> Self {
         Self {
             request_handler,
-            argument_validator,
-            response_validator,
+            argument_validator: Arc::new(argument_validator),
+            response_validator: Arc::new(response_validator),
             plugin_id,
         }
     }
 }
 
-pub fn register_core_endpoints(core_id: CUuid) -> Endpoints {
-    let mut endpoints = Endpoints::new();
-    endpoints.insert(
+pub fn register_core_endpoints(endpoints: &Endpoints, core_id: CUuid) {
+    let mut new_endpoints = HashMap::new();
+    new_endpoints.insert(
         "core:power".into(),
         Endpoint::new(
             core_power_handler,
@@ -48,10 +51,8 @@ pub fn register_core_endpoints(core_id: CUuid) -> Endpoints {
             core_id,
         ),
     );
-    endpoints
+    endpoints.rcu(|map| HashMap::clone(map).union(new_endpoints.clone()));
 }
-
-
 
 #[derive(Deserialize)]
 struct PowerArgs {
@@ -62,7 +63,8 @@ struct PowerArgs {
 unsafe extern "C" fn core_power_handler(
     context: ContextSupplier,
     args: CString,
-) -> EndpointResponse { //lock endpoint to be called at most 
+) -> EndpointResponse {
+    //lock endpoint to be called at most
     let Ok(args) = args.as_str() else {
         return EndpointResponse::new_error(ServiceError::InvalidInput0);
     };
@@ -72,7 +74,7 @@ unsafe extern "C" fn core_power_handler(
     let core_id;
     {
         // Mutex start
-        let Ok(gov) = read_gov() else {
+        let Ok(gov) = get_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
         core_id = gov.runtime().core_id();
@@ -100,21 +102,22 @@ unsafe extern "C" fn core_power_handler(
 
     {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
-        if let Some(PowerState::Cancel) = gov.runtime_mut().check_and_reset_power() {
+        if let PowerState::Cancel = gov.runtime().check_and_reset_power() {
             return EndpointResponse {
                 response: json!({"canceled": true}).to_string().into(),
                 error: ServiceError::Success,
             };
         }
-        gov.runtime_mut().set_power(args.command);
+        gov.runtime().set_power(args.command);
     } // Mutex end
 
-    
-    
-    EndpointResponse { response: json!({}).to_string().into(), error: ServiceError::Success }
+    EndpointResponse {
+        response: json!({}).to_string().into(),
+        error: ServiceError::Success,
+    }
 }
 
 pub(super) unsafe extern "C" fn endpoint_register(
@@ -152,32 +155,34 @@ pub(super) unsafe extern "C" fn endpoint_register(
         return ServiceError::InvalidInput1;
     };
 
-    let endpoint = Endpoint {
+    let endpoint = Endpoint::new(
         request_handler,
         argument_validator,
         response_validator,
         plugin_id,
-    };
-
+    );
+    let full_name;
     let core_id = {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
 
         let Some(plugin_name) = gov
             .loader()
             .plugins()
+            .load()
             .get(&plugin_id)
             .map(|p| p.name.clone())
         else {
             return ServiceError::CoreInternalError;
         };
-        let endpoints = gov.endpoints_mut();
-        if endpoints.contains_key(endpoint_name) {
+        let endpoints = gov.endpoints();
+        if endpoints.load().contains_key(endpoint_name) {
             return ServiceError::Duplicate;
         }
-        endpoints.insert(format!("{plugin_name}:{endpoint_name}").into(), endpoint);
+        full_name = format!("{plugin_name}:{endpoint_name}");
+        endpoints.rcu(|map| map.update(full_name.clone().into(), endpoint.clone()));
         gov.runtime().core_id()
     }; // Mutex end
 
@@ -194,16 +199,17 @@ pub(super) unsafe extern "C" fn endpoint_unregister(
     };
     {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
-        let Entry::Occupied(o) = gov.endpoints_mut().entry(endpoint_name.into()) else {
+        let endpoints = gov.endpoints().load();
+        let Some(endpoint) = endpoints.get(endpoint_name) else {
             return ServiceError::NotFound;
         };
-        if o.get().plugin_id != plugin_id {
+        if endpoint.plugin_id != plugin_id {
             return ServiceError::Unauthorized;
         }
-        o.remove();
+        gov.endpoints().rcu(|map| map.without(endpoint_name));
     } // Mutex end
     ServiceError::Success
 }
@@ -221,10 +227,11 @@ pub unsafe extern "C" fn endpoint_request(
     let handler;
     {
         // Mutex start
-        let Ok(gov) = read_gov() else {
+        let Ok(gov) = get_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
-        let Some(endpoint) = gov.endpoints().get(endpoint_name) else {
+        let endpoints = gov.endpoints().load();
+        let Some(endpoint) = endpoints.get(endpoint_name) else {
             return EndpointResponse::new_error(ServiceError::NotFound);
         };
         let Ok(arguments_json) = serde_json::from_str(arguments) else {
@@ -249,10 +256,11 @@ pub unsafe extern "C" fn endpoint_request(
 
     {
         // Mutex start
-        let Ok(gov) = read_gov() else {
+        let Ok(gov) = get_gov() else {
             return EndpointResponse::new_error(ServiceError::CoreInternalError);
         };
-        let Some(endpoint) = gov.endpoints().get(endpoint_name) else {
+        let endpoints = gov.endpoints().load();
+        let Some(endpoint) = endpoints.get(endpoint_name) else {
             return EndpointResponse::new_error(ServiceError::NotFound);
         };
         if let Err(_) = endpoint.response_validator.validate(&response) {

@@ -1,24 +1,26 @@
-use std::{
-    collections::{HashMap, HashSet, hash_map::Entry},
-    hash::Hash,
-};
+use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 use finance_together_api::{
     EventHandler, EventHandlerFP,
     cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid, ServiceError},
 };
+use im::HashMap;
 use jsonschema::Validator;
 use serde_json::json;
 use topo_sort::TopoSort;
 use uuid::Uuid;
 
 use crate::{
-    governor::{read_gov, write_gov, Events}, loader::Plugin, runtime::{context_supplier, schema_from_file}
+    governor::{Events, get_gov},
+    loader::Plugin,
+    runtime::{context_supplier, schema_from_file},
+    util::{ArcMapExt, TrueOrErr},
 };
 
+#[derive(Clone)]
 pub struct Event {
     pub handlers: HashSet<StoredEventHandler>,
-    argument_validator: Validator,
+    argument_validator: Arc<Validator>,
     plugin_id: CUuid,
 }
 
@@ -26,7 +28,7 @@ impl Event {
     pub fn new(argument_validator: Validator, plugin_id: CUuid) -> Self {
         Self {
             handlers: HashSet::new(),
-            argument_validator,
+            argument_validator: Arc::new(argument_validator),
             plugin_id,
         }
     }
@@ -58,38 +60,37 @@ impl StoredEventHandler {
     }
 }
 
-pub fn register_core_events(core_id: CUuid) -> Events {
-    let mut events = Events::new();
-    events.insert(
+pub fn register_core_events(events: &Events, core_id: CUuid) {
+    let mut new_events = HashMap::new();
+    new_events.insert(
         "core:init".into(),
         Event::new(
             schema_from_file(include_str!("../../event/init.json")),
             core_id,
         ),
     );
-    events.insert(
+    new_events.insert(
         "core:event".into(),
         Event::new(
             schema_from_file(include_str!("../../event/event.json")),
             core_id,
         ),
     );
-    events.insert(
+    new_events.insert(
         "core:endpoint".into(),
         Event::new(
             schema_from_file(include_str!("../../event/endpoint.json")),
             core_id,
         ),
     );
-    events.insert(
+    new_events.insert(
         "core:power".into(),
         Event::new(
             schema_from_file(include_str!("../../event/power.json")),
             core_id,
         ),
     );
-
-    events
+    events.rcu(|map| HashMap::clone(map).union(new_events.clone()));
 }
 
 pub(super) unsafe extern "C" fn handler_register(
@@ -109,18 +110,24 @@ pub(super) unsafe extern "C" fn handler_register(
     };
     {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return CEventHandler::new_error(ServiceError::CoreInternalError);
         };
-        let Some(event) = gov.events_mut().get_mut(event_name) else {
-            return CEventHandler::new_error(ServiceError::NotFound);
-        };
 
-        if !event.handlers.insert(StoredEventHandler {
+        let new_handler = StoredEventHandler {
             handler: handler.clone(),
             plugin_id,
-        }) {
-            return CEventHandler::new_error(ServiceError::Duplicate);
+        };
+
+        let result = gov.events().rcu_alter(event_name, |event| {
+            event
+                .handlers
+                .insert(new_handler.clone())
+                .or_error(ServiceError::Duplicate)
+        });
+
+        if let Err(err) = result {
+            return CEventHandler::new_error(err);
         }
     } // Mutex end
 
@@ -137,26 +144,26 @@ pub(super) unsafe extern "C" fn handler_unregister(
     };
     {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
-        let Some(event) = gov.events_mut().get_mut(event_name) else {
-            return ServiceError::NotFound;
-        };
-        let Some(handler) = event
-            .handlers
-            .iter()
-            .find(|h| h.handler.handler_id == handler_id)
-        else {
-            return ServiceError::NotFound;
-        };
-        if handler.plugin_id != plugin_id {
-            return ServiceError::Unauthorized;
-        }
-        event.handlers.remove(&handler.clone());
-    } // Mutex end
+        gov.events()
+            .rcu_alter(event_name, |event| {
+                let handler = event
+                    .handlers
+                    .iter()
+                    .find(|h| h.handler.handler_id == handler_id)
+                    .ok_or(ServiceError::NotFound)?;
 
-    ServiceError::Success
+                if handler.plugin_id != plugin_id {
+                    return Err(ServiceError::Unauthorized);
+                }
+                event.handlers.remove(&handler.clone());
+                Ok(())
+            })
+            .err()
+            .unwrap_or(ServiceError::Success)
+    } // Mutex end
 }
 
 pub(super) unsafe extern "C" fn event_register(
@@ -180,23 +187,25 @@ pub(super) unsafe extern "C" fn event_register(
     let full_name;
     let core_id = {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
         let Some(plugin_name) = gov
             .loader()
             .plugins()
+            .load()
             .get(&plugin_id)
             .map(|p| p.name.clone())
         else {
             return ServiceError::CoreInternalError;
         };
-        let events = gov.events_mut();
-        if events.contains_key(event_name) {
+        let events = gov.events();
+        if events.load().contains_key(event_name) {
             return ServiceError::Duplicate;
         }
         full_name = format!("{plugin_name}:{event_name}");
-        events.insert(full_name.clone().into(), event);
+
+        events.rcu(|map| map.update(full_name.clone().into(), event.clone()));
         gov.runtime().core_id()
     }; // Mutex end
     unsafe {
@@ -220,16 +229,18 @@ pub(super) unsafe extern "C" fn event_unregister(
     };
     {
         // Mutex start
-        let Ok(mut gov) = write_gov() else {
+        let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
-        let Entry::Occupied(o) = gov.events_mut().entry(event_name.into()) else {
+        let events = gov.events().load();
+        let Some(event) = events.get(event_name) else {
             return ServiceError::NotFound;
         };
-        if o.get().plugin_id != plugin_id {
+        if event.plugin_id != plugin_id {
             return ServiceError::Unauthorized;
         }
-        o.remove();
+
+        gov.events().rcu(|events| events.without(event_name));
     } // Mutex end
     ServiceError::Success
 }
@@ -247,10 +258,11 @@ pub unsafe extern "C" fn event_trigger(
     };
     {
         // Mutex start
-        let Ok(gov) = read_gov() else {
+        let Ok(gov) = get_gov() else {
             return ServiceError::CoreInternalError;
         };
-        let Some(event) = gov.events().get(event_name) else {
+        let events = gov.events().load();
+        let Some(event) = events.get(event_name) else {
             return ServiceError::NotFound;
         };
         if event.plugin_id != plugin_id {
@@ -265,7 +277,8 @@ pub unsafe extern "C" fn event_trigger(
         let funcs = if event_name != "core:init" {
             event.handlers.iter().map(|h| h.handler.function).collect()
         } else {
-            let Some(funcs) = sort_handlers(event.handlers.iter(), gov.loader().plugins()) else {
+            let Some(funcs) = sort_handlers(event.handlers.iter(), &gov.loader().plugins().load())
+            else {
                 return ServiceError::CoreInternalError;
             };
             funcs
@@ -278,9 +291,6 @@ pub unsafe extern "C" fn event_trigger(
         });
     }; // Mutex end
 
-    // for func in funcs {
-    //     unsafe { func(Some(context_supplier), arguments.into()) } // might lock mutex
-    // }
     ServiceError::Success
 }
 
@@ -288,9 +298,10 @@ fn sort_handlers<'a>(
     handlers: impl Iterator<Item = &'a StoredEventHandler>,
     stored_plugins: &HashMap<CUuid, Plugin>,
 ) -> Option<Vec<EventHandlerFP>> {
-    let plugins = stored_plugins.values();
     let nodes: Vec<_> = handlers
-        .map(|handler| TopoNode::create_dependency_entry(handler, &plugins, stored_plugins))
+        .map(|handler| {
+            TopoNode::create_dependency_entry(handler, || stored_plugins.values(), stored_plugins)
+        })
         .collect::<Option<_>>()?;
     let mut sorter = TopoSort::new();
     for (node, deps) in nodes {
@@ -308,17 +319,21 @@ fn sort_handlers<'a>(
 struct TopoNode(CUuid, Option<EventHandlerFP>);
 
 impl TopoNode {
-    fn create_dependency_entry<'a>(
+    fn create_dependency_entry<'a, F, I>(
         handler: &StoredEventHandler,
-        plugins: &(impl Iterator<Item = &'a Plugin> + Clone),
+        plugins: F,
         stored_plugins: &HashMap<CUuid, Plugin>,
-    ) -> Option<(TopoNode, HashSet<TopoNode>)> {
+    ) -> Option<(TopoNode, HashSet<TopoNode>)>
+    where
+        F: Fn() -> I,
+        I: Iterator<Item = &'a Plugin>,
+    {
         let plugin = stored_plugins.get(&handler.plugin_id)?;
         let node = TopoNode(handler.plugin_id, Some(handler.handler.function));
         let deps = plugin
             .dependencies
             .iter()
-            .map(|dep| TopoNode::find_plugin_by_name(plugins.clone(), dep))
+            .map(|dep| TopoNode::find_plugin_by_name(plugins(), dep))
             .map(|dep| TopoNode::find_id_for_plugin(dep?, stored_plugins))
             .collect::<Option<_>>()?;
         Some((node, deps))
