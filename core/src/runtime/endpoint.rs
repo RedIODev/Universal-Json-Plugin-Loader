@@ -138,20 +138,20 @@ pub(super) unsafe extern "C" fn endpoint_register(
     let Ok(argument_schema) = argument_schema.as_str() else {
         return ServiceError::InvalidInput0;
     };
-    let Ok(argument_schema) = serde_json::from_str(argument_schema) else {
+    let Ok(argument_schema_json) = serde_json::from_str(argument_schema) else {
         return ServiceError::InvalidInput0;
     };
-    let Ok(argument_validator) = jsonschema::validator_for(&argument_schema) else {
+    let Ok(argument_validator) = jsonschema::validator_for(&argument_schema_json) else {
         return ServiceError::InvalidInput0;
     };
 
     let Ok(response_schema) = response_schema.as_str() else {
         return ServiceError::InvalidInput1;
     };
-    let Ok(response_schema) = serde_json::from_str(&response_schema) else {
+    let Ok(response_schema_json) = serde_json::from_str(&response_schema) else {
         return ServiceError::InvalidInput1;
     };
-    let Ok(response_validator) = jsonschema::validator_for(&response_schema) else {
+    let Ok(response_validator) = jsonschema::validator_for(&response_schema_json) else {
         return ServiceError::InvalidInput1;
     };
 
@@ -186,7 +186,19 @@ pub(super) unsafe extern "C" fn endpoint_register(
         gov.runtime().core_id()
     }; // Mutex end
 
-    unsafe { event_trigger(core_id, "core:endpoint".into(), format!("").into()) };
+    unsafe { 
+        event_trigger(
+            core_id,
+            "core:endpoint".into(),
+            json!({
+                "endpoint_name": full_name,
+                "argument_schema": argument_schema,
+                "response_schema": response_schema
+            })
+            .to_string()
+            .into()
+        )
+    };
     ServiceError::Success
 }
 

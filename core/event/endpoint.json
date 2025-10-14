@@ -7,8 +7,14 @@
     "properties": {
         "endpoint_name": {
             "type": "string"
+        },
+        "argument_schema": {
+            "type":"string"
+        },
+        "response_schema": {
+            "type":"string"
         }
     },
-    "required": ["endpoint_name"]
+    "required": ["endpoint_name", "argument_schema", "response_schema"]
 }
 

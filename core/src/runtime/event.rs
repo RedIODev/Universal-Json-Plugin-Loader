@@ -212,7 +212,10 @@ pub(super) unsafe extern "C" fn event_register(
         event_trigger(
             core_id,
             "core:event".into(),
-            json!({"event_name": full_name, "argument_schema": argument_schema})
+            json!({
+                    "event_name": full_name,
+                    "argument_schema": argument_schema
+                })
                 .to_string()
                 .into(),
         )
