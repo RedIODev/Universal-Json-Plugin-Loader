@@ -6,6 +6,13 @@ use im::HashMap;
 use ouroboros::self_referencing;
 use std::hash::Hash;
 
+use crate::runtime::{endpoint::Endpoint, event::Event};
+
+
+
+
+pub type LockedMap<K, V> = ArcSwap<HashMap<K, V>>;
+
 pub trait ArcMapExt<K, V> {
     type Inner;
     type Error;

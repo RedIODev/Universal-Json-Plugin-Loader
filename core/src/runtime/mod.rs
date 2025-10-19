@@ -8,15 +8,12 @@ use std::{
 };
 
 use crate::{
-    GOV,
-    governor::{Governor, get_gov},
-    loader::Loader,
-    runtime::{
+    config::Config, governor::{get_gov, Governor}, loader::Loader, runtime::{
         endpoint::{endpoint_register, endpoint_request, endpoint_unregister},
         event::{
             event_register, event_trigger, event_unregister, handler_register, handler_unregister,
         },
-    },
+    }, GOV
 };
 use anyhow::Result;
 use atomic_enum::atomic_enum;
@@ -26,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use threadpool::ThreadPool;
 use uuid::Uuid;
+use clap::crate_version;
 
 #[atomic_enum]
 #[derive(Deserialize, Serialize, PartialEq)]
@@ -78,7 +76,7 @@ impl Runtime {
             event_trigger(
                 core_id,
                 "core:init".into(),
-                json!({"version": "0.1.0", "plugins": plugins})
+                json!({"version": crate_version!(), "plugins": plugins})
                     .to_string()
                     .into(),
             )
@@ -87,13 +85,18 @@ impl Runtime {
         Ok(())
     }
 
+    pub fn start() -> Result<()> {
+        Config::init()?;
+        Loader::load_libraries()?;
+        Runtime::init()
+    }
+
     pub fn restart() -> Result<()> {
         if let Some(gov) = &*GOV.load() {
             gov.runtime().event_pool.join();
         }
         GOV.rcu(|_| Some(Arc::new(Governor::new())));
-        Loader::load_libraries()?;
-        Runtime::init()
+        Runtime::start()
     }
 
     pub fn shutdown() {

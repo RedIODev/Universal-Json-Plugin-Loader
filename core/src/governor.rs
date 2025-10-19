@@ -1,31 +1,21 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use crate::{
-    GOV,
-    loader::Loader,
-    runtime::{
-        Runtime,
-        endpoint::{Endpoint, register_core_endpoints},
-        event::{Event, register_core_events},
-    },
-    util::{GuardExt, MappedGuard},
+    config::Config, loader::Loader, runtime::{
+        endpoint::{register_core_endpoints, Endpoint, Endpoints}, event::{register_core_events, Event, Events}, Runtime
+    }, util::{GuardExt, LockedMap, MappedGuard}, GOV
 };
 use anyhow::Result;
 use arc_swap::ArcSwap;
 use derive_more::Display;
-use im::HashMap;
 use thiserror::Error;
-
-pub type Events = LockedMap<Box<str>, Event>;
-pub type Endpoints = LockedMap<Box<str>, Endpoint>;
-
-pub type LockedMap<K, V> = ArcSwap<HashMap<K, V>>;
 
 pub struct Governor {
     loader: Loader,
     events: LockedMap<Box<str>, Event>,
     endpoints: LockedMap<Box<str>, Endpoint>,
     runtime: Runtime,
+    config: Config
 }
 
 pub type GovernorReadGuard = MappedGuard<Option<Arc<Governor>>, Arc<Governor>>;
@@ -64,6 +54,7 @@ impl Governor {
             events: ArcSwap::default(),
             endpoints: ArcSwap::default(),
             runtime,
+            config: Config::new()
         };
         register_core_endpoints(gov.endpoints(), gov.runtime().core_id());
         register_core_events(gov.events(), gov.runtime().core_id());
@@ -84,5 +75,9 @@ impl Governor {
 
     pub fn runtime(&self) -> &Runtime {
         &self.runtime
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
     }
 }

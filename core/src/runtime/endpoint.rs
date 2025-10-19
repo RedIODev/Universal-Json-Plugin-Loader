@@ -13,9 +13,11 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    governor::{Endpoints, get_gov},
-    runtime::{PowerState, context_supplier, event::event_trigger, schema_from_file},
+    governor::{get_gov},
+    runtime::{context_supplier, event::event_trigger, schema_from_file, PowerState}, util::LockedMap,
 };
+
+pub type Endpoints = LockedMap<Box<str>, Endpoint>;
 
 #[derive(Clone)]
 pub struct Endpoint {

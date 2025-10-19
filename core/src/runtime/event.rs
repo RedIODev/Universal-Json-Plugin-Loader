@@ -11,11 +11,13 @@ use topo_sort::TopoSort;
 use uuid::Uuid;
 
 use crate::{
-    governor::{get_gov, Events},
+    governor::get_gov,
     loader::Plugin,
     runtime::{context_supplier, schema_from_file, PowerState},
-    util::{ArcMapExt, TrueOrErr},
+    util::{ArcMapExt, LockedMap, TrueOrErr},
 };
+
+pub type Events = LockedMap<Box<str>, Event>;
 
 #[derive(Clone)]
 pub struct Event {

@@ -14,9 +14,9 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    governor::{LockedMap, get_gov},
+    governor::get_gov,
     runtime::event::StoredEventHandler,
-    util::{ArcMapExt, TrueOrErr},
+    util::{ArcMapExt, LockedMap, TrueOrErr},
 };
 
 pub type Plugins = LockedMap<CUuid, Plugin>;
