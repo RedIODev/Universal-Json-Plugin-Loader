@@ -1,10 +1,12 @@
+use std::env::args;
+
 use arc_swap::ArcSwapOption;
 
 use anyhow::Result;
 use clap::Parser;
 
 use crate::{
-    config::{Cli, Config}, governor::{get_gov, Governor, GovernorLifetime}, loader::Loader, runtime::{PowerState, Runtime}
+    config::{Cli, Config, PluginOption}, governor::{Governor, GovernorLifetime, get_gov}, loader::Loader, runtime::{PowerState, Runtime}
 };
 
 mod governor;
@@ -12,10 +14,10 @@ mod loader;
 mod runtime;
 mod util;
 mod config;
-//refactor: remove anyhow when core is stable, remove mutex blocks and make functions return result for easy error throw
+//refactor: remove anyhow when core is stable, remove mutex blocks and make functions return result for easy error throw, wrap unsafe api in safe api and use this in the core impl instead
 pub fn main() -> Result<()> {
     let cli = Cli::parse();
-    println!("{:?}", cli);
+    println!("{:#?}", cli);
     return Ok(());
 
     let gov_lifetime = GovernorLifetime::new()?;

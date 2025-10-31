@@ -143,3 +143,18 @@ where
         MappedGuard::try_new(self, |guard| Ok(MappedGuardInner { mapped: f(guard)? }))
     }
 }
+
+
+pub trait ResultFlatten<T,E> {
+    fn flatten_(self) -> Result<T,E>;
+}
+
+impl<T,E> ResultFlatten<T,E> for Result<Result<T, E>, E> {
+    fn flatten_(self) -> Result<T,E> {
+        match self {
+            Ok(Ok(ok)) => Ok(ok),
+            Ok(Err(err)) => Err(err),
+            Err(err) => Err(err)
+        }
+    }
+}
