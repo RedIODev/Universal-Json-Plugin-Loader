@@ -2,7 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
 use finance_together_api::cbindings::ServiceError;
-use im::HashMap;
+use im::{HashMap, Vector};
 use ouroboros::self_referencing;
 use std::hash::Hash;
 
@@ -12,6 +12,7 @@ use crate::runtime::{endpoint::Endpoint, event::Event};
 
 
 pub type LockedMap<K, V> = ArcSwap<HashMap<K, V>>;
+pub type LockedVec<T> = ArcSwap<Vector<T>>;
 
 pub trait ArcMapExt<K, V> {
     type Inner;

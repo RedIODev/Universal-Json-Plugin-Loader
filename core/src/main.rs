@@ -6,7 +6,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::{
-    config::{Cli, Config, PluginOption}, governor::{Governor, GovernorLifetime, get_gov}, loader::Loader, runtime::{PowerState, Runtime}
+    config::cli::Cli, governor::{Governor, GovernorLifetime, get_gov}, runtime::{PowerState, Runtime}
 };
 
 mod governor;
@@ -16,10 +16,7 @@ mod util;
 mod config;
 //refactor: remove anyhow when core is stable, remove mutex blocks and make functions return result for easy error throw, wrap unsafe api in safe api and use this in the core impl instead
 pub fn main() -> Result<()> {
-    let cli = Cli::parse();
-    println!("{:#?}", cli);
-    return Ok(());
-
+    
     let gov_lifetime = GovernorLifetime::new()?;
     Runtime::start()?;
     ctrlc::set_handler(ctrlc_handler)?;

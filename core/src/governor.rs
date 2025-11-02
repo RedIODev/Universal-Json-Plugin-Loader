@@ -1,12 +1,13 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::{Arc, LazyLock}};
 
 use crate::{
-    config::Config, loader::Loader, runtime::{
-        endpoint::{register_core_endpoints, Endpoint, Endpoints}, event::{register_core_events, Event, Events}, Runtime
-    }, util::{GuardExt, LockedMap, MappedGuard}, GOV
+    GOV, config::{Config, cli::{Cli, CliParser}}, loader::Loader, runtime::{
+        Runtime, endpoint::{Endpoint, Endpoints, register_core_endpoints}, event::{Event, Events, register_core_events}
+    }, util::{GuardExt, LockedMap, MappedGuard}
 };
 use anyhow::Result;
 use arc_swap::ArcSwap;
+use clap::Parser;
 use derive_more::Display;
 use thiserror::Error;
 
@@ -15,7 +16,8 @@ pub struct Governor {
     events: LockedMap<Box<str>, Event>,
     endpoints: LockedMap<Box<str>, Endpoint>,
     runtime: Runtime,
-    config: Config
+    config: Config,
+    cli: LazyLock<Cli>
 }
 
 pub type GovernorReadGuard = MappedGuard<Option<Arc<Governor>>, Arc<Governor>>;
@@ -54,7 +56,8 @@ impl Governor {
             events: ArcSwap::default(),
             endpoints: ArcSwap::default(),
             runtime,
-            config: Config::new()
+            config: Config::new(),
+            cli: LazyLock::new(|| CliParser::parse().into())
         };
         register_core_endpoints(gov.endpoints(), gov.runtime().core_id());
         register_core_events(gov.events(), gov.runtime().core_id());
@@ -79,5 +82,9 @@ impl Governor {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    pub fn cli(&self) -> &Cli {
+        &self.cli
     }
 }
