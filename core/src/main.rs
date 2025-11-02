@@ -1,12 +1,10 @@
-use std::env::args;
 
 use arc_swap::ArcSwapOption;
 
 use anyhow::Result;
-use clap::Parser;
 
 use crate::{
-    config::cli::Cli, governor::{Governor, GovernorLifetime, get_gov}, runtime::{PowerState, Runtime}
+    governor::{Governor, GovernorLifetime, get_gov}, runtime::{PowerState, Runtime}
 };
 
 mod governor;
@@ -16,7 +14,6 @@ mod util;
 mod config;
 //refactor: remove anyhow when core is stable, remove mutex blocks and make functions return result for easy error throw, wrap unsafe api in safe api and use this in the core impl instead
 pub fn main() -> Result<()> {
-    
     let gov_lifetime = GovernorLifetime::new()?;
     Runtime::start()?;
     ctrlc::set_handler(ctrlc_handler)?;

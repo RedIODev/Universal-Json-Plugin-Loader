@@ -1,19 +1,17 @@
 pub mod cli;
 
-use std::{collections::HashMap, fs, path::{Path, PathBuf}};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}, str::FromStr, sync::Arc};
 
 use anyhow::Result;
 use arc_swap::ArcSwap;
-use clap::{Args, Parser};
-use convert_case::{Case, Casing};
+use clap::Args;
 use derive_more::Display;
 use dirs::config_dir;
-use figment::{providers::Env, Figment};
 use thiserror::Error;
 use toml::Table;
 
 
-use crate::{config::cli::{Cli, CliPluginOption}, governor::get_gov, util::LockedMap};
+use crate::{config::cli::PluginOption, governor::get_gov, util::{LockedMap, MapExt}};
 
 pub type ConfigMap = LockedMap<Box<str>, Table>;
 
@@ -38,20 +36,16 @@ impl Config {
     }
 
     pub fn init() -> Result<()> {
-        let config_dir = get_gov()?.config().user_dir.join("config");
-        fs::create_dir_all(config_dir.clone())?;
-        let config_files = fs::read_dir(config_dir)?
-                .filter_map(Result::ok)
-                .filter(|entry| entry.path().is_file())
-                .filter(|entry| entry.path().extension().map(|extension| extension == "toml").unwrap_or(false))
-                .map(|config_file| Ok((config_file.file_name().to_str().ok_or(InvalidFileName)?.into(), Self::read_config(&config_file.path())?)))
-                .collect::<Result<HashMap<Box<str>,_>>>()?;
-                //.map() //create config for each file and return im::Hashmap from iter and rcu into gov
-        let override_configs = CliPluginOption::join_table(&**get_gov()?.cli().plugins().load());
-        { //Mutex start
-            let gov = get_gov()?;
-            
-        } //Mutex end
+        let file_configs = Self::parse_files()?;
+        let env_overrides = PluginOption::join_table(&Self::parse_env()?);
+        let cli_overrides = PluginOption::join_table(&**get_gov()?.cli().plugins().load());
+
+        let env_file_configs = file_configs.join_merge(env_overrides, 
+                |_, file, env| file.join_merge(env, |_,_, env_val| env_val));
+        let cli_env_file_configs = env_file_configs.join_merge(cli_overrides, 
+                |_, org, cli| org.join_merge(cli, |_, _, cli_val| cli_val));
+        
+        get_gov()?.config().configs.store(Arc::new(im::HashMap::from(cli_env_file_configs)));
         Ok(())
     }
 
@@ -60,22 +54,23 @@ impl Config {
         Ok(toml::from_str(&config)?)
     }
 
-    fn base_figment(filename: &str) -> Figment {
-        Figment::new()
-            .merge(Env::prefixed(&filename.to_case(Case::Constant)))
-      
+    fn parse_env() -> Result<Vec<PluginOption>, cli::ParseError> {
+        std::env::vars()
+                .filter_map(|(key, value)| key.strip_prefix("FT_").map(|key| format!("{key}={value}")))
+                .map(|arg| PluginOption::from_str(&arg))
+                .collect::<Result<Vec<_>, cli::ParseError>>()
     }
 
-    //add overrides to builder with plugin prefix removed and prefix mapped to category
-
-    // fn base_builder(filename: &str) -> ConfigBuilder {
-    //     let env = config::Environment::with_prefix(&filename.to_uppercase());
-    //     let override_conf = config::Config::builder().add_source(env).build().unwrap();
-
-    //     config::Config::builder()
-    //         .
-
-    // } 
+    fn parse_files() -> Result<HashMap<Box<str>, Table>> {
+        let config_dir = get_gov()?.config().user_dir.join("config");
+        fs::create_dir_all(config_dir.clone())?;
+        fs::read_dir(config_dir)?
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().is_file())
+                .filter(|entry| entry.path().extension().map(|extension| extension == "toml").unwrap_or(false))
+                .map(|config_file| Ok((config_file.file_name().to_str().ok_or(InvalidFileName)?.into(), Self::read_config(&config_file.path())?)))
+                .collect::<Result<HashMap<Box<str>,_>>>()
+    }
 }
 
 #[derive(Debug, Display, Error)]

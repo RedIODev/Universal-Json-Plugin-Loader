@@ -2,13 +2,9 @@ use std::{ops::Deref, sync::Arc};
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
 use finance_together_api::cbindings::ServiceError;
-use im::{HashMap, Vector};
+use im::{HashMap, HashSet, Vector};
 use ouroboros::self_referencing;
 use std::hash::Hash;
-
-use crate::runtime::{endpoint::Endpoint, event::Event};
-
-
 
 
 pub type LockedMap<K, V> = ArcSwap<HashMap<K, V>>;
@@ -93,6 +89,58 @@ impl TrueOrErr for bool {
         }
     }
 }
+
+pub trait MapExt<K,V> {
+    fn join_merge<F>(self, other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V; 
+}
+
+impl<K: Hash + Eq + Clone,V> MapExt<K,V> for std::collections::HashMap<K,V> {
+    fn join_merge<F>(mut self, mut other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V {
+        self.keys()
+            .chain(other.keys())
+            .cloned()
+            .collect::<HashSet<K>>()
+            .into_iter()
+            .map(|key| {
+                let left = self.remove(&key);
+                let right = other.remove(&key);
+                match (left, right) {
+                    (Some(left), Some(right)) => {
+                        let value = f(&key, left, right);
+                        (key, value)
+                    },
+                    (Some(left), None) => (key, left),
+                    (None, Some(right)) => (key, right),
+                    (None, None) => unreachable!("We source from keys of both maps. At least 1 must contain it.")
+                }
+            }).collect()
+    }
+}
+
+impl<K: Hash + Eq + Clone + Ord,V> MapExt<K,V> for toml::map::Map<K,V> {
+    fn join_merge<F>(mut self, mut other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V {
+        self.keys()
+            .chain(other.keys())
+            .cloned()
+            .collect::<HashSet<K>>()
+            .into_iter()
+            .map(|key| {
+                let left = self.remove(&key);
+                let right = other.remove(&key);
+                match (left, right) {
+                    (Some(left), Some(right)) => {
+                        let value = f(&key, left, right);
+                        (key, value)
+                    },
+                    (Some(left), None) => (key, left),
+                    (None, Some(right)) => (key, right),
+                    (None, None) => unreachable!("We source from keys of both maps. At least 1 must contain it.")
+                }
+            }).collect()
+    }
+}
+
+
 
 #[self_referencing]
 pub struct MappedGuard<T: arc_swap::RefCnt + 'static, U: 'static> {
