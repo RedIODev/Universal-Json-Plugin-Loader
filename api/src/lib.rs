@@ -4,3 +4,5 @@ pub mod cbindings;
 mod misc;
 
 pub use misc::*;
+#[cfg(feature = "safe")]
+pub mod safe_api;

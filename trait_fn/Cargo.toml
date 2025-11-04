@@ -1,0 +1,11 @@
+[package]
+name = "trait_fn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+syn = "2.0.108"
+quote = "1.0.41"
+
+[lib]
+proc-macro = true

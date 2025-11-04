@@ -1,12 +1,27 @@
-use std::{env, path::PathBuf, str::FromStr};
+use std::{env, fmt::format, path::PathBuf, str::FromStr};
 
-use bindgen_helpers::{rename_enum, Renamer};
+use bindgen_helpers::{
+    IdentRenamer, Regex, Renamer,
+    callbacks::{ItemKind, ParseCallbacks},
+    rename_enum,
+};
+
+#[derive(Debug)]
+struct CPrefix;
+
+impl ParseCallbacks for CPrefix {
+    fn item_name(&self, item_info: bindgen_helpers::callbacks::ItemInfo) -> Option<String> {
+        if let ItemKind::Type = item_info.kind {
+            return Some(format!("C{}", item_info.name));
+        }
+        None
+    }
+}
 
 fn main() {
+    println!("cargo::rerun-if-changed=src/capi/header/ft_api.h");
 
- println!("cargo::rerun-if-changed=src/capi/header/ft_api.h");
-
-let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     cbindgen::Builder::new()
         .with_language(cbindgen::Language::C)
@@ -17,11 +32,12 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         .write_to_file("src/capi/header/ft_rustbindings.h");
 
     let mut renamer = Renamer::new(false);
-    renamer.rename_item("EventHandler", "CEventHandler");
-    renamer.rename_item("EventHandlerFP", "CEventHandlerFP");
-    renamer.rename_item("RequestHandlerFP", "CRequestHandlerFP");
-    renamer.rename_item("String", "CString");
-    renamer.rename_item("Uuid", "CUuid");
+
+    // renamer.rename_item("EventHandler", "CEventHandler");
+    // renamer.rename_item("EventHandlerFP", "CEventHandlerFP");
+    // renamer.rename_item("RequestHandlerFP", "CRequestHandlerFP");
+    // renamer.rename_item("String", "CString");
+    // renamer.rename_item("Uuid", "CUuid");
     rename_enum!(
         renamer,
         "ServiceError" => "ServiceError",
@@ -29,17 +45,20 @@ let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     );
 
     let bindings = bindgen_helpers::Builder::default()
-            .header("./src/capi/header/ft_api.h")
-            .parse_callbacks(Box::new(bindgen_helpers::CargoCallbacks::new()))
-            .derive_copy(false)
-            .default_enum_style(bindgen_helpers::EnumVariation::Rust { non_exhaustive: false })
-            .parse_callbacks(Box::new(renamer))
-            .generate()
-            .expect("Unable to generate c -> rust bindings!");
-    let out_path = PathBuf::from_str("./src/cbindings.rs")
-            .expect("Project structure incorrect");
-    bindings.write_to_file(out_path)
-            .expect("Couldn't write bindings!");
+        .header("./src/capi/header/ft_api.h")
+        .parse_callbacks(Box::new(bindgen_helpers::CargoCallbacks::new()))
+        .derive_copy(false)
+        .default_enum_style(bindgen_helpers::EnumVariation::Rust {
+            non_exhaustive: false,
+        })
+        .parse_callbacks(Box::new(renamer))
+        .parse_callbacks(Box::new(CPrefix))
+        .generate()
+        .expect("Unable to generate c -> rust bindings!");
+    let out_path = PathBuf::from_str("./src/cbindings.rs").expect("Project structure incorrect");
+    bindings
+        .write_to_file(out_path)
+        .expect("Couldn't write bindings!");
 
     cc::Build::new()
         .file("src/capi/ft_string.c")

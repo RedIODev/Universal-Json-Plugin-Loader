@@ -12,8 +12,8 @@ typedef struct ApplicationContext (*ContextSupplier)();
 
 // Uuid type to pass uuids over the ffi boundary safely
 typedef struct {
-    u64 first;
-    u64 second;
+    u64 higher;
+    u64 lower;
 } Uuid;
 
 typedef enum {

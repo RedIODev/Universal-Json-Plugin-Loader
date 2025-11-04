@@ -148,197 +148,197 @@ pub const ____mbstate_t_defined: u32 = 1;
 pub const __bool_true_false_are_defined: u32 = 1;
 pub const true_: u32 = 1;
 pub const false_: u32 = 0;
-pub type __u_char = ::std::os::raw::c_uchar;
-pub type __u_short = ::std::os::raw::c_ushort;
-pub type __u_int = ::std::os::raw::c_uint;
-pub type __u_long = ::std::os::raw::c_ulong;
-pub type __int8_t = ::std::os::raw::c_schar;
-pub type __uint8_t = ::std::os::raw::c_uchar;
-pub type __int16_t = ::std::os::raw::c_short;
-pub type __uint16_t = ::std::os::raw::c_ushort;
-pub type __int32_t = ::std::os::raw::c_int;
-pub type __uint32_t = ::std::os::raw::c_uint;
-pub type __int64_t = ::std::os::raw::c_long;
-pub type __uint64_t = ::std::os::raw::c_ulong;
-pub type __int_least8_t = __int8_t;
-pub type __uint_least8_t = __uint8_t;
-pub type __int_least16_t = __int16_t;
-pub type __uint_least16_t = __uint16_t;
-pub type __int_least32_t = __int32_t;
-pub type __uint_least32_t = __uint32_t;
-pub type __int_least64_t = __int64_t;
-pub type __uint_least64_t = __uint64_t;
-pub type __quad_t = ::std::os::raw::c_long;
-pub type __u_quad_t = ::std::os::raw::c_ulong;
-pub type __intmax_t = ::std::os::raw::c_long;
-pub type __uintmax_t = ::std::os::raw::c_ulong;
-pub type __dev_t = ::std::os::raw::c_ulong;
-pub type __uid_t = ::std::os::raw::c_uint;
-pub type __gid_t = ::std::os::raw::c_uint;
-pub type __ino_t = ::std::os::raw::c_ulong;
-pub type __ino64_t = ::std::os::raw::c_ulong;
-pub type __mode_t = ::std::os::raw::c_uint;
-pub type __nlink_t = ::std::os::raw::c_ulong;
-pub type __off_t = ::std::os::raw::c_long;
-pub type __off64_t = ::std::os::raw::c_long;
-pub type __pid_t = ::std::os::raw::c_int;
+pub type C__u_char = ::std::os::raw::c_uchar;
+pub type C__u_short = ::std::os::raw::c_ushort;
+pub type C__u_int = ::std::os::raw::c_uint;
+pub type C__u_long = ::std::os::raw::c_ulong;
+pub type C__int8_t = ::std::os::raw::c_schar;
+pub type C__uint8_t = ::std::os::raw::c_uchar;
+pub type C__int16_t = ::std::os::raw::c_short;
+pub type C__uint16_t = ::std::os::raw::c_ushort;
+pub type C__int32_t = ::std::os::raw::c_int;
+pub type C__uint32_t = ::std::os::raw::c_uint;
+pub type C__int64_t = ::std::os::raw::c_long;
+pub type C__uint64_t = ::std::os::raw::c_ulong;
+pub type C__int_least8_t = C__int8_t;
+pub type C__uint_least8_t = C__uint8_t;
+pub type C__int_least16_t = C__int16_t;
+pub type C__uint_least16_t = C__uint16_t;
+pub type C__int_least32_t = C__int32_t;
+pub type C__uint_least32_t = C__uint32_t;
+pub type C__int_least64_t = C__int64_t;
+pub type C__uint_least64_t = C__uint64_t;
+pub type C__quad_t = ::std::os::raw::c_long;
+pub type C__u_quad_t = ::std::os::raw::c_ulong;
+pub type C__intmax_t = ::std::os::raw::c_long;
+pub type C__uintmax_t = ::std::os::raw::c_ulong;
+pub type C__dev_t = ::std::os::raw::c_ulong;
+pub type C__uid_t = ::std::os::raw::c_uint;
+pub type C__gid_t = ::std::os::raw::c_uint;
+pub type C__ino_t = ::std::os::raw::c_ulong;
+pub type C__ino64_t = ::std::os::raw::c_ulong;
+pub type C__mode_t = ::std::os::raw::c_uint;
+pub type C__nlink_t = ::std::os::raw::c_ulong;
+pub type C__off_t = ::std::os::raw::c_long;
+pub type C__off64_t = ::std::os::raw::c_long;
+pub type C__pid_t = ::std::os::raw::c_int;
 #[repr(C)]
 #[derive(Debug)]
-pub struct __fsid_t {
+pub struct C__fsid_t {
     pub __val: [::std::os::raw::c_int; 2usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of __fsid_t"][::std::mem::size_of::<__fsid_t>() - 8usize];
-    ["Alignment of __fsid_t"][::std::mem::align_of::<__fsid_t>() - 4usize];
-    ["Offset of field: __fsid_t::__val"][::std::mem::offset_of!(__fsid_t, __val) - 0usize];
+    ["Size of C__fsid_t"][::std::mem::size_of::<C__fsid_t>() - 8usize];
+    ["Alignment of C__fsid_t"][::std::mem::align_of::<C__fsid_t>() - 4usize];
+    ["Offset of field: C__fsid_t::__val"][::std::mem::offset_of!(C__fsid_t, __val) - 0usize];
 };
-pub type __clock_t = ::std::os::raw::c_long;
-pub type __rlim_t = ::std::os::raw::c_ulong;
-pub type __rlim64_t = ::std::os::raw::c_ulong;
-pub type __id_t = ::std::os::raw::c_uint;
-pub type __time_t = ::std::os::raw::c_long;
-pub type __useconds_t = ::std::os::raw::c_uint;
-pub type __suseconds_t = ::std::os::raw::c_long;
-pub type __suseconds64_t = ::std::os::raw::c_long;
-pub type __daddr_t = ::std::os::raw::c_int;
-pub type __key_t = ::std::os::raw::c_int;
-pub type __clockid_t = ::std::os::raw::c_int;
-pub type __timer_t = *mut ::std::os::raw::c_void;
-pub type __blksize_t = ::std::os::raw::c_long;
-pub type __blkcnt_t = ::std::os::raw::c_long;
-pub type __blkcnt64_t = ::std::os::raw::c_long;
-pub type __fsblkcnt_t = ::std::os::raw::c_ulong;
-pub type __fsblkcnt64_t = ::std::os::raw::c_ulong;
-pub type __fsfilcnt_t = ::std::os::raw::c_ulong;
-pub type __fsfilcnt64_t = ::std::os::raw::c_ulong;
-pub type __fsword_t = ::std::os::raw::c_long;
-pub type __ssize_t = ::std::os::raw::c_long;
-pub type __syscall_slong_t = ::std::os::raw::c_long;
-pub type __syscall_ulong_t = ::std::os::raw::c_ulong;
-pub type __loff_t = __off64_t;
-pub type __caddr_t = *mut ::std::os::raw::c_char;
-pub type __intptr_t = ::std::os::raw::c_long;
-pub type __socklen_t = ::std::os::raw::c_uint;
-pub type __sig_atomic_t = ::std::os::raw::c_int;
-pub type int_least8_t = __int_least8_t;
-pub type int_least16_t = __int_least16_t;
-pub type int_least32_t = __int_least32_t;
-pub type int_least64_t = __int_least64_t;
-pub type uint_least8_t = __uint_least8_t;
-pub type uint_least16_t = __uint_least16_t;
-pub type uint_least32_t = __uint_least32_t;
-pub type uint_least64_t = __uint_least64_t;
-pub type int_fast8_t = ::std::os::raw::c_schar;
-pub type int_fast16_t = ::std::os::raw::c_long;
-pub type int_fast32_t = ::std::os::raw::c_long;
-pub type int_fast64_t = ::std::os::raw::c_long;
-pub type uint_fast8_t = ::std::os::raw::c_uchar;
-pub type uint_fast16_t = ::std::os::raw::c_ulong;
-pub type uint_fast32_t = ::std::os::raw::c_ulong;
-pub type uint_fast64_t = ::std::os::raw::c_ulong;
-pub type intmax_t = __intmax_t;
-pub type uintmax_t = __uintmax_t;
+pub type C__clock_t = ::std::os::raw::c_long;
+pub type C__rlim_t = ::std::os::raw::c_ulong;
+pub type C__rlim64_t = ::std::os::raw::c_ulong;
+pub type C__id_t = ::std::os::raw::c_uint;
+pub type C__time_t = ::std::os::raw::c_long;
+pub type C__useconds_t = ::std::os::raw::c_uint;
+pub type C__suseconds_t = ::std::os::raw::c_long;
+pub type C__suseconds64_t = ::std::os::raw::c_long;
+pub type C__daddr_t = ::std::os::raw::c_int;
+pub type C__key_t = ::std::os::raw::c_int;
+pub type C__clockid_t = ::std::os::raw::c_int;
+pub type C__timer_t = *mut ::std::os::raw::c_void;
+pub type C__blksize_t = ::std::os::raw::c_long;
+pub type C__blkcnt_t = ::std::os::raw::c_long;
+pub type C__blkcnt64_t = ::std::os::raw::c_long;
+pub type C__fsblkcnt_t = ::std::os::raw::c_ulong;
+pub type C__fsblkcnt64_t = ::std::os::raw::c_ulong;
+pub type C__fsfilcnt_t = ::std::os::raw::c_ulong;
+pub type C__fsfilcnt64_t = ::std::os::raw::c_ulong;
+pub type C__fsword_t = ::std::os::raw::c_long;
+pub type C__ssize_t = ::std::os::raw::c_long;
+pub type C__syscall_slong_t = ::std::os::raw::c_long;
+pub type C__syscall_ulong_t = ::std::os::raw::c_ulong;
+pub type C__loff_t = C__off64_t;
+pub type C__caddr_t = *mut ::std::os::raw::c_char;
+pub type C__intptr_t = ::std::os::raw::c_long;
+pub type C__socklen_t = ::std::os::raw::c_uint;
+pub type C__sig_atomic_t = ::std::os::raw::c_int;
+pub type Cint_least8_t = C__int_least8_t;
+pub type Cint_least16_t = C__int_least16_t;
+pub type Cint_least32_t = C__int_least32_t;
+pub type Cint_least64_t = C__int_least64_t;
+pub type Cuint_least8_t = C__uint_least8_t;
+pub type Cuint_least16_t = C__uint_least16_t;
+pub type Cuint_least32_t = C__uint_least32_t;
+pub type Cuint_least64_t = C__uint_least64_t;
+pub type Cint_fast8_t = ::std::os::raw::c_schar;
+pub type Cint_fast16_t = ::std::os::raw::c_long;
+pub type Cint_fast32_t = ::std::os::raw::c_long;
+pub type Cint_fast64_t = ::std::os::raw::c_long;
+pub type Cuint_fast8_t = ::std::os::raw::c_uchar;
+pub type Cuint_fast16_t = ::std::os::raw::c_ulong;
+pub type Cuint_fast32_t = ::std::os::raw::c_ulong;
+pub type Cuint_fast64_t = ::std::os::raw::c_ulong;
+pub type Cintmax_t = C__intmax_t;
+pub type Cuintmax_t = C__uintmax_t;
 #[repr(C)]
-pub struct __mbstate_t {
+pub struct C__mbstate_t {
     pub __count: ::std::os::raw::c_int,
-    pub __value: __mbstate_t__bindgen_ty_1,
+    pub __value: C__mbstate_t__bindgen_ty_1,
 }
 #[repr(C)]
-pub struct __mbstate_t__bindgen_ty_1 {
+pub struct C__mbstate_t__bindgen_ty_1 {
     pub __wch: __BindgenUnionField<::std::os::raw::c_uint>,
     pub __wchb: __BindgenUnionField<[::std::os::raw::c_char; 4usize]>,
     pub bindgen_union_field: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of __mbstate_t__bindgen_ty_1"]
-        [::std::mem::size_of::<__mbstate_t__bindgen_ty_1>() - 4usize];
-    ["Alignment of __mbstate_t__bindgen_ty_1"]
-        [::std::mem::align_of::<__mbstate_t__bindgen_ty_1>() - 4usize];
-    ["Offset of field: __mbstate_t__bindgen_ty_1::__wch"]
-        [::std::mem::offset_of!(__mbstate_t__bindgen_ty_1, __wch) - 0usize];
-    ["Offset of field: __mbstate_t__bindgen_ty_1::__wchb"]
-        [::std::mem::offset_of!(__mbstate_t__bindgen_ty_1, __wchb) - 0usize];
+    ["Size of C__mbstate_t__bindgen_ty_1"]
+        [::std::mem::size_of::<C__mbstate_t__bindgen_ty_1>() - 4usize];
+    ["Alignment of C__mbstate_t__bindgen_ty_1"]
+        [::std::mem::align_of::<C__mbstate_t__bindgen_ty_1>() - 4usize];
+    ["Offset of field: C__mbstate_t__bindgen_ty_1::__wch"]
+        [::std::mem::offset_of!(C__mbstate_t__bindgen_ty_1, __wch) - 0usize];
+    ["Offset of field: C__mbstate_t__bindgen_ty_1::__wchb"]
+        [::std::mem::offset_of!(C__mbstate_t__bindgen_ty_1, __wchb) - 0usize];
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of __mbstate_t"][::std::mem::size_of::<__mbstate_t>() - 8usize];
-    ["Alignment of __mbstate_t"][::std::mem::align_of::<__mbstate_t>() - 4usize];
-    ["Offset of field: __mbstate_t::__count"]
-        [::std::mem::offset_of!(__mbstate_t, __count) - 0usize];
-    ["Offset of field: __mbstate_t::__value"]
-        [::std::mem::offset_of!(__mbstate_t, __value) - 4usize];
+    ["Size of C__mbstate_t"][::std::mem::size_of::<C__mbstate_t>() - 8usize];
+    ["Alignment of C__mbstate_t"][::std::mem::align_of::<C__mbstate_t>() - 4usize];
+    ["Offset of field: C__mbstate_t::__count"]
+        [::std::mem::offset_of!(C__mbstate_t, __count) - 0usize];
+    ["Offset of field: C__mbstate_t::__value"]
+        [::std::mem::offset_of!(C__mbstate_t, __value) - 4usize];
 };
-pub type mbstate_t = __mbstate_t;
-pub type char16_t = __uint_least16_t;
-pub type char32_t = __uint_least32_t;
+pub type Cmbstate_t = C__mbstate_t;
+pub type Cchar16_t = C__uint_least16_t;
+pub type Cchar32_t = C__uint_least32_t;
 unsafe extern "C" {
     pub fn mbrtoc16(
-        __pc16: *mut char16_t,
+        __pc16: *mut Cchar16_t,
         __s: *const ::std::os::raw::c_char,
         __n: usize,
-        __p: *mut mbstate_t,
+        __p: *mut Cmbstate_t,
     ) -> usize;
 }
 unsafe extern "C" {
     pub fn c16rtomb(
         __s: *mut ::std::os::raw::c_char,
-        __c16: char16_t,
-        __ps: *mut mbstate_t,
+        __c16: Cchar16_t,
+        __ps: *mut Cmbstate_t,
     ) -> usize;
 }
 unsafe extern "C" {
     pub fn mbrtoc32(
-        __pc32: *mut char32_t,
+        __pc32: *mut Cchar32_t,
         __s: *const ::std::os::raw::c_char,
         __n: usize,
-        __p: *mut mbstate_t,
+        __p: *mut Cmbstate_t,
     ) -> usize;
 }
 unsafe extern "C" {
     pub fn c32rtomb(
         __s: *mut ::std::os::raw::c_char,
-        __c32: char32_t,
-        __ps: *mut mbstate_t,
+        __c32: Cchar32_t,
+        __ps: *mut Cmbstate_t,
     ) -> usize;
 }
-pub type i8_ = i8;
-pub type i16_ = i16;
-pub type i32_ = i32;
-pub type i64_ = i64;
-pub type i128_ = __int128_t;
-pub type u8_ = u8;
-pub type u16_ = u16;
-pub type u32_ = u32;
-pub type u64_ = u64;
-pub type u128_ = __uint128_t;
-pub type usize_ = usize;
-pub type isize_ = __ssize_t;
-pub type c8 = ::std::os::raw::c_uchar;
-pub type c16 = char16_t;
-pub type c32 = char32_t;
-pub type f32_ = f32;
-pub type f64_ = f64;
-pub type f128 = u128;
-pub type fmax = f128;
-pub type ContextSupplier = ::std::option::Option<unsafe extern "C" fn() -> ApplicationContext>;
+pub type Ci8 = i8;
+pub type Ci16 = i16;
+pub type Ci32 = i32;
+pub type Ci64 = i64;
+pub type Ci128 = C__int128_t;
+pub type Cu8 = u8;
+pub type Cu16 = u16;
+pub type Cu32 = u32;
+pub type Cu64 = u64;
+pub type Cu128 = C__uint128_t;
+pub type Cusize = usize;
+pub type Cisize = C__ssize_t;
+pub type Cc8 = ::std::os::raw::c_uchar;
+pub type Cc16 = Cchar16_t;
+pub type Cc32 = Cchar32_t;
+pub type Cf32 = f32;
+pub type Cf64 = f64;
+pub type Cf128 = u128;
+pub type Cfmax = Cf128;
+pub type CContextSupplier = ::std::option::Option<unsafe extern "C" fn() -> CApplicationContext>;
 #[repr(C)]
 #[derive(Debug)]
 pub struct CUuid {
-    pub first: u64_,
-    pub second: u64_,
+    pub higher: Cu64,
+    pub lower: Cu64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of CUuid"][::std::mem::size_of::<CUuid>() - 16usize];
     ["Alignment of CUuid"][::std::mem::align_of::<CUuid>() - 8usize];
-    ["Offset of field: CUuid::first"][::std::mem::offset_of!(CUuid, first) - 0usize];
-    ["Offset of field: CUuid::second"][::std::mem::offset_of!(CUuid, second) - 8usize];
+    ["Offset of field: CUuid::higher"][::std::mem::offset_of!(CUuid, higher) - 0usize];
+    ["Offset of field: CUuid::lower"][::std::mem::offset_of!(CUuid, lower) - 8usize];
 };
 #[repr(u32)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum ServiceError {
+pub enum CServiceError {
     Success = 0,
     CoreInternalError = 1,
     InvalidInput0 = 2,
@@ -356,11 +356,12 @@ pub enum ServiceError {
     InvalidResponse = 14,
     ShutingDown = 15,
 }
-pub type StringDealloc = ::std::option::Option<unsafe extern "C" fn(arg1: *const c8, arg2: usize_)>;
+pub type CStringDealloc =
+    ::std::option::Option<unsafe extern "C" fn(arg1: *const Cc8, arg2: Cusize)>;
 #[repr(C)]
 #[derive(Debug)]
 pub struct CString {
-    pub internal: [u8_; 24usize],
+    pub internal: [Cu8; 24usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -369,7 +370,7 @@ const _: () = {
     ["Offset of field: CString::internal"][::std::mem::offset_of!(CString, internal) - 0usize];
 };
 unsafe extern "C" {
-    pub fn createString(arg1: *const c8, arg2: usize_, arg3: StringDealloc) -> CString;
+    pub fn createString(arg1: *const Cc8, arg2: Cusize, arg3: CStringDealloc) -> CString;
 }
 unsafe extern "C" {
     pub fn destroyString(arg1: *mut CString);
@@ -378,59 +379,60 @@ unsafe extern "C" {
     pub fn isValidString(arg1: *const CString) -> bool;
 }
 unsafe extern "C" {
-    pub fn getCharString(arg1: *const CString, arg2: usize_) -> c8;
+    pub fn getCharString(arg1: *const CString, arg2: Cusize) -> Cc8;
 }
 unsafe extern "C" {
-    pub fn getLengthString(arg1: *const CString) -> usize_;
+    pub fn getLengthString(arg1: *const CString) -> Cusize;
 }
 unsafe extern "C" {
-    pub fn getViewString(arg1: *const CString, arg2: usize_, arg3: usize_) -> *const c8;
+    pub fn getViewString(arg1: *const CString, arg2: Cusize, arg3: Cusize) -> *const Cc8;
 }
-pub type StringListDeallocFP =
-    ::std::option::Option<unsafe extern "C" fn(arg1: *mut CString, arg2: u32_)>;
+pub type CStringListDeallocFP =
+    ::std::option::Option<unsafe extern "C" fn(arg1: *mut CString, arg2: Cu32)>;
 #[repr(C)]
 #[derive(Debug)]
-pub struct List_String {
-    pub dealloc_fn: StringListDeallocFP,
+pub struct CList_String {
+    pub dealloc_fn: CStringListDeallocFP,
     pub data: *mut CString,
-    pub length: u32_,
+    pub length: Cu32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of List_String"][::std::mem::size_of::<List_String>() - 24usize];
-    ["Alignment of List_String"][::std::mem::align_of::<List_String>() - 8usize];
-    ["Offset of field: List_String::dealloc_fn"]
-        [::std::mem::offset_of!(List_String, dealloc_fn) - 0usize];
-    ["Offset of field: List_String::data"][::std::mem::offset_of!(List_String, data) - 8usize];
-    ["Offset of field: List_String::length"][::std::mem::offset_of!(List_String, length) - 16usize];
+    ["Size of CList_String"][::std::mem::size_of::<CList_String>() - 24usize];
+    ["Alignment of CList_String"][::std::mem::align_of::<CList_String>() - 8usize];
+    ["Offset of field: CList_String::dealloc_fn"]
+        [::std::mem::offset_of!(CList_String, dealloc_fn) - 0usize];
+    ["Offset of field: CList_String::data"][::std::mem::offset_of!(CList_String, data) - 8usize];
+    ["Offset of field: CList_String::length"]
+        [::std::mem::offset_of!(CList_String, length) - 16usize];
 };
 unsafe extern "C" {
-    pub fn isValidListString(arg1: *const List_String) -> bool;
+    pub fn isValidListString(arg1: *const CList_String) -> bool;
 }
 unsafe extern "C" {
     pub fn createListString(
         data: *mut CString,
-        length: u32_,
-        dealloc_fn: StringListDeallocFP,
-    ) -> List_String;
+        length: Cu32,
+        dealloc_fn: CStringListDeallocFP,
+    ) -> CList_String;
 }
 unsafe extern "C" {
-    pub fn destroyListString(list: *mut List_String);
+    pub fn destroyListString(list: *mut CList_String);
 }
 unsafe extern "C" {
-    pub fn getListString(list: *mut List_String, index: u32_) -> *mut CString;
+    pub fn getListString(list: *mut CList_String, index: Cu32) -> *mut CString;
 }
 unsafe extern "C" {
-    pub fn emptyListString() -> List_String;
+    pub fn emptyListString() -> CList_String;
 }
 pub type CEventHandlerFP =
-    ::std::option::Option<unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString)>;
+    ::std::option::Option<unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString)>;
 #[repr(C)]
 #[derive(Debug)]
 pub struct CEventHandler {
     pub function: CEventHandlerFP,
     pub handler_id: CUuid,
-    pub error: ServiceError,
+    pub error: CServiceError,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -443,123 +445,124 @@ const _: () = {
     ["Offset of field: CEventHandler::error"]
         [::std::mem::offset_of!(CEventHandler, error) - 24usize];
 };
-pub type HandlerRegisterService = ::std::option::Option<
+pub type CHandlerRegisterService = ::std::option::Option<
     unsafe extern "C" fn(arg1: CEventHandlerFP, arg2: CUuid, arg3: CString) -> CEventHandler,
 >;
-pub type HandlerUnregisterService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CUuid, arg2: CUuid, arg3: CString) -> ServiceError,
+pub type CHandlerUnregisterService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CUuid, arg2: CUuid, arg3: CString) -> CServiceError,
 >;
-pub type EventRegisterService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> ServiceError,
+pub type CEventRegisterService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> CServiceError,
 >;
-pub type EventUnregisterService =
-    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;
-pub type EventTriggerService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> ServiceError,
+pub type CEventUnregisterService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> CServiceError>;
+pub type CEventTriggerService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> CServiceError,
 >;
 #[repr(C)]
 #[derive(Debug)]
-pub struct EndpointResponse {
+pub struct CEndpointResponse {
     pub response: CString,
-    pub error: ServiceError,
+    pub error: CServiceError,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of EndpointResponse"][::std::mem::size_of::<EndpointResponse>() - 28usize];
-    ["Alignment of EndpointResponse"][::std::mem::align_of::<EndpointResponse>() - 4usize];
-    ["Offset of field: EndpointResponse::response"]
-        [::std::mem::offset_of!(EndpointResponse, response) - 0usize];
-    ["Offset of field: EndpointResponse::error"]
-        [::std::mem::offset_of!(EndpointResponse, error) - 24usize];
+    ["Size of CEndpointResponse"][::std::mem::size_of::<CEndpointResponse>() - 28usize];
+    ["Alignment of CEndpointResponse"][::std::mem::align_of::<CEndpointResponse>() - 4usize];
+    ["Offset of field: CEndpointResponse::response"]
+        [::std::mem::offset_of!(CEndpointResponse, response) - 0usize];
+    ["Offset of field: CEndpointResponse::error"]
+        [::std::mem::offset_of!(CEndpointResponse, error) - 24usize];
 };
 pub type CRequestHandlerFP = ::std::option::Option<
-    unsafe extern "C" fn(arg1: ContextSupplier, arg2: CString) -> EndpointResponse,
+    unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString) -> CEndpointResponse,
 >;
-pub type EndpointRegisterService = ::std::option::Option<
+pub type CEndpointRegisterService = ::std::option::Option<
     unsafe extern "C" fn(
         arg1: CString,
         arg2: CString,
         arg3: CUuid,
         arg4: CString,
         arg5: CRequestHandlerFP,
-    ) -> ServiceError,
+    ) -> CServiceError,
 >;
-pub type EndpointUnregisterService =
-    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> ServiceError>;
-pub type EndpointRequestService =
-    ::std::option::Option<unsafe extern "C" fn(arg1: CString, arg2: CString) -> EndpointResponse>;
-pub type wchar_t = ::std::os::raw::c_int;
+pub type CEndpointUnregisterService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> CServiceError>;
+pub type CEndpointRequestService =
+    ::std::option::Option<unsafe extern "C" fn(arg1: CString, arg2: CString) -> CEndpointResponse>;
+pub type Cwchar_t = ::std::os::raw::c_int;
 #[repr(C)]
 #[repr(align(16))]
 #[derive(Debug)]
-pub struct max_align_t {
+pub struct Cmax_align_t {
     pub __clang_max_align_nonce1: ::std::os::raw::c_longlong,
     pub __bindgen_padding_0: u64,
     pub __clang_max_align_nonce2: u128,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of max_align_t"][::std::mem::size_of::<max_align_t>() - 32usize];
-    ["Alignment of max_align_t"][::std::mem::align_of::<max_align_t>() - 16usize];
-    ["Offset of field: max_align_t::__clang_max_align_nonce1"]
-        [::std::mem::offset_of!(max_align_t, __clang_max_align_nonce1) - 0usize];
-    ["Offset of field: max_align_t::__clang_max_align_nonce2"]
-        [::std::mem::offset_of!(max_align_t, __clang_max_align_nonce2) - 16usize];
+    ["Size of Cmax_align_t"][::std::mem::size_of::<Cmax_align_t>() - 32usize];
+    ["Alignment of Cmax_align_t"][::std::mem::align_of::<Cmax_align_t>() - 16usize];
+    ["Offset of field: Cmax_align_t::__clang_max_align_nonce1"]
+        [::std::mem::offset_of!(Cmax_align_t, __clang_max_align_nonce1) - 0usize];
+    ["Offset of field: Cmax_align_t::__clang_max_align_nonce2"]
+        [::std::mem::offset_of!(Cmax_align_t, __clang_max_align_nonce2) - 16usize];
 };
 #[repr(C)]
 #[derive(Debug)]
-pub struct ApplicationContext {
-    pub handlerRegisterService: HandlerRegisterService,
-    pub HandlerUnregisterService: HandlerUnregisterService,
-    pub eventRegisterService: EventRegisterService,
-    pub eventUnregisterService: EventUnregisterService,
-    pub eventTriggerService: EventTriggerService,
-    pub endpointRegisterService: EndpointRegisterService,
-    pub endpointUnregisterService: EndpointUnregisterService,
-    pub endpointRequestService: EndpointRequestService,
+pub struct CApplicationContext {
+    pub handlerRegisterService: CHandlerRegisterService,
+    pub HandlerUnregisterService: CHandlerUnregisterService,
+    pub eventRegisterService: CEventRegisterService,
+    pub eventUnregisterService: CEventUnregisterService,
+    pub eventTriggerService: CEventTriggerService,
+    pub endpointRegisterService: CEndpointRegisterService,
+    pub endpointUnregisterService: CEndpointUnregisterService,
+    pub endpointRequestService: CEndpointRequestService,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ApplicationContext"][::std::mem::size_of::<ApplicationContext>() - 64usize];
-    ["Alignment of ApplicationContext"][::std::mem::align_of::<ApplicationContext>() - 8usize];
-    ["Offset of field: ApplicationContext::handlerRegisterService"]
-        [::std::mem::offset_of!(ApplicationContext, handlerRegisterService) - 0usize];
-    ["Offset of field: ApplicationContext::HandlerUnregisterService"]
-        [::std::mem::offset_of!(ApplicationContext, HandlerUnregisterService) - 8usize];
-    ["Offset of field: ApplicationContext::eventRegisterService"]
-        [::std::mem::offset_of!(ApplicationContext, eventRegisterService) - 16usize];
-    ["Offset of field: ApplicationContext::eventUnregisterService"]
-        [::std::mem::offset_of!(ApplicationContext, eventUnregisterService) - 24usize];
-    ["Offset of field: ApplicationContext::eventTriggerService"]
-        [::std::mem::offset_of!(ApplicationContext, eventTriggerService) - 32usize];
-    ["Offset of field: ApplicationContext::endpointRegisterService"]
-        [::std::mem::offset_of!(ApplicationContext, endpointRegisterService) - 40usize];
-    ["Offset of field: ApplicationContext::endpointUnregisterService"]
-        [::std::mem::offset_of!(ApplicationContext, endpointUnregisterService) - 48usize];
-    ["Offset of field: ApplicationContext::endpointRequestService"]
-        [::std::mem::offset_of!(ApplicationContext, endpointRequestService) - 56usize];
+    ["Size of CApplicationContext"][::std::mem::size_of::<CApplicationContext>() - 64usize];
+    ["Alignment of CApplicationContext"][::std::mem::align_of::<CApplicationContext>() - 8usize];
+    ["Offset of field: CApplicationContext::handlerRegisterService"]
+        [::std::mem::offset_of!(CApplicationContext, handlerRegisterService) - 0usize];
+    ["Offset of field: CApplicationContext::HandlerUnregisterService"]
+        [::std::mem::offset_of!(CApplicationContext, HandlerUnregisterService) - 8usize];
+    ["Offset of field: CApplicationContext::eventRegisterService"]
+        [::std::mem::offset_of!(CApplicationContext, eventRegisterService) - 16usize];
+    ["Offset of field: CApplicationContext::eventUnregisterService"]
+        [::std::mem::offset_of!(CApplicationContext, eventUnregisterService) - 24usize];
+    ["Offset of field: CApplicationContext::eventTriggerService"]
+        [::std::mem::offset_of!(CApplicationContext, eventTriggerService) - 32usize];
+    ["Offset of field: CApplicationContext::endpointRegisterService"]
+        [::std::mem::offset_of!(CApplicationContext, endpointRegisterService) - 40usize];
+    ["Offset of field: CApplicationContext::endpointUnregisterService"]
+        [::std::mem::offset_of!(CApplicationContext, endpointUnregisterService) - 48usize];
+    ["Offset of field: CApplicationContext::endpointRequestService"]
+        [::std::mem::offset_of!(CApplicationContext, endpointRequestService) - 56usize];
 };
 #[repr(C)]
 #[derive(Debug)]
-pub struct PluginInfo {
+pub struct CPluginInfo {
     pub name: CString,
     pub version: CString,
-    pub dependencies: List_String,
+    pub dependencies: CList_String,
     pub init_handler: CEventHandlerFP,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of PluginInfo"][::std::mem::size_of::<PluginInfo>() - 80usize];
-    ["Alignment of PluginInfo"][::std::mem::align_of::<PluginInfo>() - 8usize];
-    ["Offset of field: PluginInfo::name"][::std::mem::offset_of!(PluginInfo, name) - 0usize];
-    ["Offset of field: PluginInfo::version"][::std::mem::offset_of!(PluginInfo, version) - 24usize];
-    ["Offset of field: PluginInfo::dependencies"]
-        [::std::mem::offset_of!(PluginInfo, dependencies) - 48usize];
-    ["Offset of field: PluginInfo::init_handler"]
-        [::std::mem::offset_of!(PluginInfo, init_handler) - 72usize];
+    ["Size of CPluginInfo"][::std::mem::size_of::<CPluginInfo>() - 80usize];
+    ["Alignment of CPluginInfo"][::std::mem::align_of::<CPluginInfo>() - 8usize];
+    ["Offset of field: CPluginInfo::name"][::std::mem::offset_of!(CPluginInfo, name) - 0usize];
+    ["Offset of field: CPluginInfo::version"]
+        [::std::mem::offset_of!(CPluginInfo, version) - 24usize];
+    ["Offset of field: CPluginInfo::dependencies"]
+        [::std::mem::offset_of!(CPluginInfo, dependencies) - 48usize];
+    ["Offset of field: CPluginInfo::init_handler"]
+        [::std::mem::offset_of!(CPluginInfo, init_handler) - 72usize];
 };
 unsafe extern "C" {
     pub fn pluginMain(arg1: CUuid) -> CEventHandlerFP;
 }
-pub type __int128_t = i128;
-pub type __uint128_t = u128;
+pub type C__int128_t = i128;
+pub type C__uint128_t = u128;
