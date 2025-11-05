@@ -4,8 +4,8 @@ use derive_more::Display;
 use thiserror::Error;
 
 use crate::cbindings::{
-    CEventHandler, CEventHandlerFP, CRequestHandlerFP, CString, CUuid, EndpointResponse,
-    List_String, ServiceError, createListString, createString, destroyListString, destroyString,
+    CEventHandler, CEventHandlerFP, CRequestHandlerFP, CString, CUuid, CEndpointResponse,
+    CList_String, CServiceError, createListString, createString, destroyListString, destroyString,
     getLengthString, getViewString, isValidListString, isValidString,
 };
 
@@ -13,13 +13,13 @@ use crate::cbindings::{
 
 
 
-impl Drop for List_String {
+impl Drop for CList_String {
     fn drop(&mut self) {
         unsafe { destroyListString(self) };
     }
 }
 
-impl List_String {
+impl CList_String {
     pub fn as_array(&self) -> Result<&[CString], InvalidList> {
         if unsafe { !isValidListString(self) } {
             return Err(InvalidList);
@@ -32,7 +32,7 @@ impl List_String {
     }
 }
 
-impl<T> From<T> for List_String
+impl<T> From<T> for CList_String
 where
     T: Into<Box<[CString]>>,
 {
@@ -104,7 +104,7 @@ pub type EventHandlerFP = <CEventHandlerFP as OptionWrapped>::Unwrapped;
 pub type RequestHandlerFP = <CRequestHandlerFP as OptionWrapped>::Unwrapped;
 
 impl CEventHandler {
-    pub fn new_error(error: ServiceError) -> Self {
+    pub fn new_error(error: CServiceError) -> Self {
         Self {
             function: None,
             handler_id: CUuid::from_u64_pair((0, 0)),
@@ -113,15 +113,15 @@ impl CEventHandler {
     }
 }
 
-impl std::fmt::Display for ServiceError {
+impl std::fmt::Display for CServiceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
 
-impl EndpointResponse {
-    pub fn new_error(error: ServiceError) -> Self {
+impl CEndpointResponse {
+    pub fn new_error(error: CServiceError) -> Self {
         Self {
             response: CString::from(""),
             error,

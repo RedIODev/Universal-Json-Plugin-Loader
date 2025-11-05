@@ -1,6 +1,7 @@
+use convert_case::Casing;
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{DeriveInput, Ident, ItemFn, Token, parse::Parse, parse_macro_input};
+use syn::{DeriveInput, Generics, Ident, ItemFn, ItemTrait, ReturnType, Signature, Token, TraitItem, TraitItemFn, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Fn};
 
 struct AttrArgs {
     trait_ident: Ident,
@@ -22,7 +23,6 @@ impl Parse for AttrArgs {
 
 #[proc_macro_attribute]
 pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let item2 = item.clone();
     let attr = parse_macro_input!(attr as AttrArgs);
     let func = parse_macro_input!(item as ItemFn);
     let mut impl_func = func.clone();
@@ -31,7 +31,8 @@ pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     impl_func.vis = syn::Visibility::Inherited;
     let trait_ident = attr.trait_ident;
-    let struct_name = Ident::new(&func.sig.ident.to_string().to_uppercase(), Span::call_site().into());
+    let struct_name = Ident::new(&func.sig.ident.to_string()
+            .to_case(convert_case::Case::Pascal), Span::call_site().into());
     let struct_vis = func.vis;
     let implementation = quote! {
         #struct_vis struct #struct_name;
@@ -40,4 +41,29 @@ pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
     implementation.into()
+}
+
+#[proc_macro_attribute]
+pub fn fn_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut trait_item = parse_macro_input!(item as ItemTrait);
+    let adapter = trait_item.items.iter().find_map(find_adapter);
+    let Some(adapter) = adapter else {
+        return syn::Error::new(Span::call_site().into(), "Trait must contain function named 'adapter'").to_compile_error().into();
+    };
+    let adapter_args = adapter.sig.inputs;
+    let adapter_result = adapter.sig.output;
+    let func = parse_quote! { fn as_fp() -> unsafe extern "C" fn (#adapter_args) #adapter_result {
+        Self::adapter
+    }};
+    trait_item.items.push(TraitItem::Fn(func));
+    quote! { #trait_item}.into()
+}
+
+fn find_adapter(item: &TraitItem) -> Option<TraitItemFn> {
+    if let TraitItem::Fn(func) = item {
+        if func.sig.ident.to_string() == "adapter" {
+            return Some(func.clone())
+        }
+    }
+    None
 }

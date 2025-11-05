@@ -1,7 +1,9 @@
-use trait_fn::trait_fn;
+use std::marker::PhantomData;
+
+use trait_fn::{fn_trait, trait_fn};
 use uuid::Uuid;
 
-use crate::{cbindings::{CContextSupplier, CEventHandler, CEventHandlerFP, CHandlerRegisterService, CHandlerUnregisterService, CServiceError, CString, CUuid}, safe_api::ServiceError};
+use crate::{OptionWrapped, cbindings::{CContextSupplier, CEventHandler, CEventHandlerFP, CHandlerRegisterService, CHandlerUnregisterService, CServiceError, CString, CUuid}, safe_api::ServiceError};
 
 // macro_rules! trait_lampda {
 //     (let $l:ident for $tr:ty => $func:ident($args:tt) -> $ret:ty $body:block) => {//add args
@@ -16,17 +18,33 @@ use crate::{cbindings::{CContextSupplier, CEventHandler, CEventHandlerFP, CHandl
 
 // }}
 
-pub trait EventHandlerFP {
-    fn handle(context: u8, args: impl AsRef<str>);
+type UnwrapedEventHandlerFP = <CEventHandlerFP as OptionWrapped>::Unwrapped;
 
-    fn as_fp() -> CEventHandlerFP {
-        Some(event_handle_adapter::<Self>)
+#[fn_trait]
+pub trait EventHandlerFP {
+    fn safe<S: AsRef<str>>(context: u8, args: S);
+
+    unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
+        Self::safe(5, args.as_str().expect("Not a Valid UTF8-String!"));
+    }
+
+    fn from_fp<S: AsRef<str>>(fp: UnwrapedEventHandlerFP) -> impl Fn(u8, S) {
+        move |context, args:S| unsafe { fp(None, args.as_ref().into())}
     }
 }
 
-unsafe extern "C" fn event_handle_adapter<E: EventHandlerFP + ?Sized>(context: CContextSupplier, args: CString) {
-    E::handle(5, args.as_str().expect("Not a Valid UTF8-String!"));
-}
+
+// pub trait EventHandlerFP {
+//     fn handle(context: u8, args: impl AsRef<str>);
+
+//     fn as_fp() -> CEventHandlerFP {
+//         Some(event_handle_adapter::<Self>)
+//     }
+// }
+
+// unsafe extern "C" fn event_handle_adapter<E: EventHandlerFP + ?Sized>(context: CContextSupplier, args: CString) {
+//     E::handle(5, args.as_str().expect("Not a Valid UTF8-String!"));
+// }
 
 pub trait HandlerRegisterService {
     fn event_handler_register(handler: u8, plugin_id: Uuid, event_name: impl AsRef<str>) -> u8;
@@ -38,7 +56,7 @@ pub trait HandlerRegisterService {
 
 unsafe extern "C" fn event_handler_register_adapter<H: HandlerRegisterService + ?Sized>(handler: CEventHandlerFP, plugin_id: CUuid, event_name: CString) -> CEventHandler {
     let Ok(event_name) = event_name.as_str() else {
-        return CEventHandler::new_error(ServiceError::InvalidInput2);
+        return CEventHandler::new_error(CServiceError::InvalidInput2);
     };
     H::event_handler_register(5, plugin_id.into(), event_name);
     todo!()
