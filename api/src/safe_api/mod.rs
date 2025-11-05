@@ -77,14 +77,6 @@ match self {
     }
 }
 
-impl TryFrom<CServiceError> for () {
-    type Error = ServiceError;
-
-    fn try_from(value: CServiceError) -> Result<Self, Self::Error> {
-        value.to_rust()
-    }
-}
-
 impl From<ServiceError> for CServiceError {
     fn from(value: ServiceError) -> Self {
         value.to_c()
@@ -94,6 +86,21 @@ impl From<ServiceError> for CServiceError {
 impl From<()> for CServiceError {
     fn from(_: ()) -> Self {
         Self::Success
+    }
+}
+
+impl From<Result<(), ServiceError>> for CServiceError {
+    fn from(value: Result<(), ServiceError>) -> Self {
+        match value {
+            Ok(ok) => ok.into(),
+            Err(e) => e.into()
+        }
+    }
+}
+
+impl From<CServiceError> for Result<(), ServiceError> {
+    fn from(value: CServiceError) -> Self {
+        value.to_rust()
     }
 }
 
