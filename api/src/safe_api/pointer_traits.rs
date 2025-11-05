@@ -225,7 +225,7 @@ pub trait EndpointRegisterService {
         let Some(handler) = handler else {
             return CServiceError::InvalidInput4;
         };
-        Self::safe::<&str, &str, &str, &str, _>(
+        Self::safe(
             args_schema,
             response_schema,
             plugin_id.into(),
@@ -251,7 +251,7 @@ pub trait EndpointRegisterService {
                 response_schema.as_ref().into(),
                 plugin_id.into(),
                 endpoint_name.as_ref().into(),
-                Some(<F as RequestHandlerFunc>::unsafe_fp()),
+                Some(F::unsafe_fp()),
             )
             .into()
         }
