@@ -512,7 +512,7 @@ const _: () = {
 #[derive(Debug)]
 pub struct CApplicationContext {
     pub handlerRegisterService: CHandlerRegisterService,
-    pub HandlerUnregisterService: CHandlerUnregisterService,
+    pub handlerUnregisterService: CHandlerUnregisterService,
     pub eventRegisterService: CEventRegisterService,
     pub eventUnregisterService: CEventUnregisterService,
     pub eventTriggerService: CEventTriggerService,
@@ -526,8 +526,8 @@ const _: () = {
     ["Alignment of CApplicationContext"][::std::mem::align_of::<CApplicationContext>() - 8usize];
     ["Offset of field: CApplicationContext::handlerRegisterService"]
         [::std::mem::offset_of!(CApplicationContext, handlerRegisterService) - 0usize];
-    ["Offset of field: CApplicationContext::HandlerUnregisterService"]
-        [::std::mem::offset_of!(CApplicationContext, HandlerUnregisterService) - 8usize];
+    ["Offset of field: CApplicationContext::handlerUnregisterService"]
+        [::std::mem::offset_of!(CApplicationContext, handlerUnregisterService) - 8usize];
     ["Offset of field: CApplicationContext::eventRegisterService"]
         [::std::mem::offset_of!(CApplicationContext, eventRegisterService) - 16usize];
     ["Offset of field: CApplicationContext::eventUnregisterService"]

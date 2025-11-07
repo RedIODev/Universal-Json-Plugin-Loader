@@ -8,10 +8,10 @@
 #include <stddef.h>
 
 // Application context that provides configuration services for the plugin to interact with the core application.
-// With a context you can register, uregister and trigger events and handlers.
+// With a context you can register, uregister and trigger events, endpoints and handlers.
 typedef struct ApplicationContext {
     NON_NULL HandlerRegisterService handlerRegisterService; 
-    NON_NULL HandlerUnregisterService HandlerUnregisterService;
+    NON_NULL HandlerUnregisterService handlerUnregisterService;
     NON_NULL EventRegisterService eventRegisterService;
     NON_NULL EventUnregisterService eventUnregisterService;
     NON_NULL EventTriggerService eventTriggerService;

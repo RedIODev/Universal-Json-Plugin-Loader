@@ -5,45 +5,60 @@ use uuid::Uuid;
 
 use crate::{
     cbindings::{
-        CContextSupplier, CEndpointResponse, CEventHandler, CEventHandlerFP, CServiceError,
-        CString, CUuid,
+        CApplicationContext, CContextSupplier, CEndpointResponse, CEventHandler, CEventHandlerFP, CServiceError, CString, CUuid
     },
-    safe_api::ServiceError,
+    safe_api::{ApplicationContext, EndpointResponse, EventHandler, ServiceError},
 };
 
 #[fn_trait]
-pub trait EventHandlerFunc {
-    fn safe<S: AsRef<str>>(context: u8, args: S);
+pub trait ContextSupplier {
+    fn safe() -> ApplicationContext;
 
-    unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
-        Self::safe(5, args.as_str().expect("Not a Valid UTF8-String!"));
+    unsafe extern "C" fn adapter() -> CApplicationContext {
+        Self::safe().to_c()
     }
 
-    fn from_fp<S: AsRef<str>>(self: EventHandlerFuncUnsafeFP) -> impl Fn(u8, S) {
-        move |context, args| unsafe { self(todo!(), args.as_ref().into()) }
+    fn from_fp(self: ContextSupplierUnsafeFP) -> impl Fn() -> Result<ApplicationContext, ServiceError> {
+        move || unsafe {self().to_rust()}
+    }
+}
+
+#[fn_trait]
+pub trait EventHandlerFunc {
+    fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S);
+
+    unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
+        let context = context.expect("Null function pointers are invalid!").to_safe();
+        let context = || context().expect("ApplicationContext must only contain valid fp!");
+        Self::safe(context, args.as_str().expect("Not a Valid UTF8-String!"));
+    }
+
+    fn from_fp<C: ContextSupplier, S: AsRef<str>>(self: EventHandlerFuncUnsafeFP) -> impl Fn(C, S) {
+        move |_, args| unsafe { self(Some(C::unsafe_fp()), args.as_ref().into()) }
     }
 }
 
 #[fn_trait]
 pub trait HandlerRegisterService {
-    fn safe<S: AsRef<str>>(handler: u8, plugin_id: Uuid, event_name: S) -> u8;
+    fn safe<C: ContextSupplier, S: AsRef<str>, H: Fn(C, S), T: AsRef<str>>(handler: H, plugin_id: Uuid, event_name: T, _: PhantomData<(C, S)>) -> Result<EventHandler, ServiceError>;
 
-    unsafe extern "C" fn adapter(
+    unsafe extern "C" fn adapter<C: ContextSupplier>(
         handler: CEventHandlerFP,
         plugin_id: CUuid,
         event_name: CString,
     ) -> CEventHandler {
+        let Some(handler) = handler else {
+            return CEventHandler::new_error(CServiceError::InvalidInput0);
+        };
         let Ok(event_name) = event_name.as_str() else {
             return CEventHandler::new_error(CServiceError::InvalidInput2);
         };
-        Self::safe(todo!(), plugin_id.into(), event_name);
-        todo!()
+        Self::safe(handler.to_safe::<C, &str>(), plugin_id.into(), event_name, PhantomData).into()
     }
 
-    fn from_fp<S: AsRef<str>>(self: HandlerRegisterServiceUnsafeFP) -> impl Fn(u8, Uuid, S) -> u8 {
-        move |context, plugin_id, event_name| unsafe {
-            self(None, plugin_id.into(), event_name.as_ref().into());
-            todo!()
+    fn from_fp<E: EventHandlerFunc, T: AsRef<str>>(self: HandlerRegisterServiceUnsafeFP) -> impl Fn(E, Uuid, T) -> Result<EventHandler, ServiceError> {
+        move |_, plugin_id, event_name| unsafe {
+            self(Some(E::unsafe_fp()), plugin_id.into(), event_name.as_ref().into()).into()
         }
     }
 }
@@ -174,7 +189,7 @@ pub trait EventTriggerService {
 
 #[fn_trait]
 pub trait RequestHandlerFunc {
-    fn safe<S: AsRef<str>>(context_supplier: u8, args: S) -> u8;
+    fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context_supplier: F, args: S) -> Result<EndpointResponse, ServiceError>;
 
     unsafe extern "C" fn adapter(
         context_supplier: CContextSupplier,
@@ -183,30 +198,32 @@ pub trait RequestHandlerFunc {
         let Ok(args) = args.as_str() else {
             return CEndpointResponse::new_error(CServiceError::InvalidInput1);
         };
-        Self::safe(todo!(), args);
-        todo!()
+        let Some(context) = context_supplier else {
+            return CEndpointResponse::new_error(CServiceError::InvalidInput0);
+        };
+        let context = || context.to_safe()().expect("ApplicationContext must only contain valid fp!");
+        Self::safe(context, args).into()
     }
 
-    fn from_fp<S: AsRef<str>>(self: RequestHandlerFuncUnsafeFP) -> impl Fn(u8, S) -> u8 {
-        move |context_supplier, args| unsafe {
-            self(todo!(), args.as_ref().into());
-            todo!()
+    fn from_fp<C: ContextSupplier, S: AsRef<str>>(self: RequestHandlerFuncUnsafeFP) -> impl Fn(C, S) -> Result<EndpointResponse, ServiceError> {
+        move |_, args| unsafe {
+            self(Some(C::unsafe_fp()), args.as_ref().into()).into()
         }
     }
 }
 
 #[fn_trait]
 pub trait EndpointRegisterService {
-    fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>, R: AsRef<str>, F: Fn(u8, R) -> u8>(
+    fn safe<C:ContextSupplier, S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>, R: AsRef<str>, F: Fn(C, R) -> Result<EndpointResponse, ServiceError>>(
         args_schema: S,
         response_schema: T,
         plugin_id: Uuid,
         endpoint_name: Q,
-        _t: PhantomData<R>,
+        _t: PhantomData<(C, R)>,
         handler: F,
     ) -> Result<(), ServiceError>;
 
-    unsafe extern "C" fn adapter(
+    unsafe extern "C" fn adapter<C: ContextSupplier>(
         args_schema: CString,
         response_schema: CString,
         plugin_id: CUuid,
@@ -230,7 +247,7 @@ pub trait EndpointRegisterService {
             response_schema,
             plugin_id.into(),
             endpoint_name,
-            PhantomData::<&str>,
+            PhantomData::<(C, &str)>,
             handler.to_safe(),
         )
         .into()
@@ -278,7 +295,7 @@ pub trait EndpointUnregisterService {
 
 #[fn_trait]
 pub trait EndpointRequestService {
-    fn safe<S: AsRef<str>, T: AsRef<str>>(endpoint_name: S, args: T) -> u8;
+    fn safe<S: AsRef<str>, T: AsRef<str>>(endpoint_name: S, args: T) -> Result<EndpointResponse, ServiceError>;
 
     unsafe extern "C" fn adapter(endpoint_name: CString, args: CString) -> CEndpointResponse {
         let Ok(endpoint_name) = endpoint_name.as_str() else {
@@ -287,14 +304,12 @@ pub trait EndpointRequestService {
         let Ok(args) = args.as_str() else {
             return CEndpointResponse::new_error(CServiceError::InvalidInput1);
         };
-        Self::safe(endpoint_name, args);
-        todo!()
+        Self::safe(endpoint_name, args).into()
     }
 
-    fn from_fp<S: AsRef<str>, T: AsRef<str>>(self: EndpointRequestServiceUnsafeFP) -> impl Fn(S, T) -> u8 {
+    fn from_fp<S: AsRef<str>, T: AsRef<str>>(self: EndpointRequestServiceUnsafeFP) -> impl Fn(S, T) -> Result<EndpointResponse, ServiceError> {
         move |endpoint_name, args| unsafe {
-            self(endpoint_name.as_ref().into(), args.as_ref().into());
-            todo!()
+            self(endpoint_name.as_ref().into(), args.as_ref().into()).into()
         }
     }
 }

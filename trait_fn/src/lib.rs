@@ -1,7 +1,7 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    BareFnArg, BareVariadic, FnArg, Generics, Ident, ItemFn, ItemImpl, ItemTrait, ItemType, PatType, Signature, Token, TraitItem, TraitItemFn, Type, TypeBareFn, Variadic, Visibility, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma
+    BareFnArg, BareVariadic, FnArg, GenericParam, Generics, Ident, ItemFn, ItemImpl, ItemTrait, ItemType, PatType, Signature, Token, TraitItem, TraitItemFn, TypeBareFn, Variadic, Visibility, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma
 };
 
 struct AttrArgs {
@@ -50,11 +50,14 @@ pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn fn_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_item = parse_macro_input!(item as ItemTrait);
-    match fn_trait_result(trait_item) {
+    let x =match fn_trait_result(trait_item) {
         Ok(ok) => ok,
         Err(err) => err,
-    }
+    };
+    println!("{}", x);
+    x
 }
+
 
 fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     let adapter = find_func(&item, "adapter")?;
@@ -63,9 +66,16 @@ fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     let adapter_generics = adapter.sig.generics.clone();
     let adapter_fp_type = sig_to_fp(adapter.sig)?;
     let safe_fp_type = sig_to_fp(safe.sig)?;
+    let mut call_site_adapter_generics = adapter_generics.clone();
+    call_site_adapter_generics.params.iter_mut().for_each(|param| if let GenericParam::Type(t) = param {
+        t.colon_token = None;
+        t.bounds = Punctuated::default();
+        t.default = None;
+    });
+    let params = call_site_adapter_generics.params;
     let adapter_func = parse_quote! {
         fn unsafe_fp #adapter_generics () -> #adapter_fp_type {
-            Self::adapter
+            Self::adapter::<#params>
         }
     };
     let safe_func = parse_quote! {
@@ -78,7 +88,7 @@ fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     let trait_vis = item.vis.clone();
     let trait_name = item.ident.clone();
     let safe_fp_type = create_type(&trait_vis, &trait_name, "SafeFP", &safe_generics, &safe_fp_type);
-    let adapter_fp_type = create_type(&trait_vis, &trait_name, "UnsafeFP", &adapter_generics, &adapter_fp_type);
+    let adapter_fp_type = create_type(&trait_vis, &trait_name, "UnsafeFP", &Generics::default(), &adapter_fp_type);
 
 
     let from_fp = find_func(&item, "from_fp")?;

@@ -1,12 +1,9 @@
-use std::fmt::Debug;
-use std::rc::Rc;
-use std::str::FromStr;
 
-use derive_enum_from_into::EnumFrom;
+use std::fmt::Debug;
+
 use derive_more::Display;
 use thiserror::Error;
 use uuid::Uuid;
-
 
 pub mod misc;
 pub mod pointer_traits;
@@ -30,7 +27,22 @@ pub enum ServiceError {
     ShutingDown,
 }
 
-use crate::{cbindings::{CEventHandler, CString, CEndpointResponse, CServiceError}, safe_api::misc::StringConventError};
+use crate::cbindings::CApplicationContext;
+use crate::safe_api::pointer_traits::{EndpointRegisterServiceUnsafeFP, EndpointRequestServiceUnsafeFP, EndpointUnregisterServiceUnsafeFP, EventHandlerFuncUnsafeFP, EventRegisterServiceUnsafeFP, EventTriggerServiceUnsafeFP, EventUnregisterServiceUnsafeFP, HandlerRegisterServiceUnsafeFP, HandlerUnregisterServiceUnsafeFP};
+use crate::{
+    cbindings::{CEndpointResponse, CEventHandler, CServiceError, CString},
+    
+};
+
+trait OkOrCoreInternalError<T> {
+    fn ok_or_core(self) -> Result<T, ServiceError>;
+}
+
+impl<T> OkOrCoreInternalError<T> for Option<T> {
+    fn ok_or_core(self) -> Result<T, ServiceError> {
+        self.ok_or(ServiceError::CoreInternalError)
+    }
+}
 
 impl CServiceError {
     pub const fn to_rust(self) -> Result<(), ServiceError> {
@@ -57,7 +69,7 @@ impl CServiceError {
 
 impl ServiceError {
     pub const fn to_c(self) -> CServiceError {
-match self {
+        match self {
             ServiceError::CoreInternalError => CServiceError::CoreInternalError,
             ServiceError::InvalidInput0 => CServiceError::InvalidInput0,
             ServiceError::InvalidInput1 => CServiceError::InvalidInput1,
@@ -93,7 +105,7 @@ impl From<Result<(), ServiceError>> for CServiceError {
     fn from(value: Result<(), ServiceError>) -> Self {
         match value {
             Ok(ok) => ok.into(),
-            Err(e) => e.into()
+            Err(e) => e.into(),
         }
     }
 }
@@ -101,6 +113,152 @@ impl From<Result<(), ServiceError>> for CServiceError {
 impl From<CServiceError> for Result<(), ServiceError> {
     fn from(value: CServiceError) -> Self {
         value.to_rust()
+    }
+}
+
+pub struct EventHandler {//todo add accessor function
+    function: EventHandlerFuncUnsafeFP,
+    handler_id: Uuid,
+}
+
+impl CEventHandler {
+    pub fn to_rust(self) -> Result<EventHandler, ServiceError> {
+        self.error.to_rust()?;
+        let func = self.function.ok_or_core()?;
+
+        Ok(EventHandler {
+            function: func,
+            handler_id: self.handler_id.into(),
+        })
+    }
+}
+
+impl EventHandler {
+    pub fn to_c(self) -> CEventHandler {
+        CEventHandler {
+            function: Some(self.function),
+            handler_id: self.handler_id.into(),
+            error: CServiceError::Success,
+        }
+    }
+}
+
+impl From<EventHandler> for CEventHandler {
+    fn from(value: EventHandler) -> Self {
+        value.to_c()
+    }
+}
+
+impl From<ServiceError> for CEventHandler {
+    fn from(value: ServiceError) -> Self {
+        CEventHandler::new_error(value.into())
+    }
+}
+
+impl From<Result<EventHandler, ServiceError>> for CEventHandler {
+    fn from(value: Result<EventHandler, ServiceError>) -> Self {
+        match value {
+            Ok(ok) => ok.into(),
+            Err(e) => e.into()
+        }
+    }
+}
+
+impl From<CEventHandler> for Result<EventHandler, ServiceError> {
+    fn from(value: CEventHandler) -> Self {
+        value.to_rust()
+    }
+}
+
+pub struct EndpointResponse { //todo add accessor function
+    response: CString
+}
+
+impl CEndpointResponse {
+    pub fn to_rust(self) -> Result<EndpointResponse, ServiceError> {
+        self.error.to_rust()?;
+        Ok(EndpointResponse { response: self.response })
+    }
+}
+
+impl EndpointResponse {
+    pub fn to_c(self) -> CEndpointResponse {
+        CEndpointResponse { response: self.response, error: CServiceError::Success }
+    }
+}
+
+impl From<EndpointResponse> for CEndpointResponse {
+    fn from(value: EndpointResponse) -> Self {
+        value.to_c()
+    }
+}
+
+impl From<ServiceError> for CEndpointResponse {
+    fn from(value: ServiceError) -> Self {
+        CEndpointResponse::new_error(value.into())
+    }
+}
+
+impl From<Result<EndpointResponse, ServiceError>> for CEndpointResponse {
+    fn from(value: Result<EndpointResponse, ServiceError>) -> Self {
+        match value {
+            Ok(ok) => ok.into(),
+            Err(e) => e.into()
+        }
+    }
+}
+
+impl From<CEndpointResponse> for Result<EndpointResponse, ServiceError> {
+    fn from(value: CEndpointResponse) -> Self {
+        value.to_rust()
+    }
+}
+
+pub struct ApplicationContext { // todo add accessor functions
+    handler_register_service: HandlerRegisterServiceUnsafeFP,
+    handler_unregister_service: HandlerUnregisterServiceUnsafeFP,
+    event_register_service: EventRegisterServiceUnsafeFP,
+    event_unregister_service: EventUnregisterServiceUnsafeFP,
+    event_trigger_service: EventTriggerServiceUnsafeFP,
+    endpoint_register_service: EndpointRegisterServiceUnsafeFP,
+    endpoint_unregister_service: EndpointUnregisterServiceUnsafeFP,
+    endpoint_request_service: EndpointRequestServiceUnsafeFP
+}
+
+impl CApplicationContext {
+    pub fn to_rust(self) -> Result<ApplicationContext, ServiceError> {
+        Ok(ApplicationContext { 
+            handler_register_service: self.handlerRegisterService.ok_or_core()?, 
+            handler_unregister_service: self.handlerUnregisterService.ok_or_core()?, 
+            event_register_service: self.eventRegisterService.ok_or_core()?, 
+            event_unregister_service: self.eventUnregisterService.ok_or_core()?, 
+            event_trigger_service: self.eventTriggerService.ok_or_core()?, 
+            endpoint_register_service: self.endpointRegisterService.ok_or_core()?, 
+            endpoint_unregister_service: self.endpointUnregisterService.ok_or_core()?, 
+            endpoint_request_service: self.endpointRequestService.ok_or_core()? 
+        })
+
+    }
+}
+
+impl ApplicationContext {
+    pub fn to_c(self) -> CApplicationContext {
+        CApplicationContext { 
+            handlerRegisterService: Some(self.handler_register_service), 
+            handlerUnregisterService: Some(self.handler_unregister_service), 
+            eventRegisterService: Some(self.event_register_service), 
+            eventUnregisterService: Some(self.event_unregister_service), 
+            eventTriggerService: Some(self.event_trigger_service), 
+            endpointRegisterService: Some(self.endpoint_register_service), 
+            endpointUnregisterService: Some(self.endpoint_unregister_service), 
+            endpointRequestService: Some(self.endpoint_request_service) 
+        }
+    }
+}
+
+impl From<ApplicationContext> for CApplicationContext {
+    fn from(value: ApplicationContext) -> Self {
+        value.to_c()
     }
 }
 
