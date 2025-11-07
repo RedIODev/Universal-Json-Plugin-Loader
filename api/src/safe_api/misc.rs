@@ -3,7 +3,7 @@ use std::str::Utf8Error;
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::{cbindings::{CString, CUuid, createString, destroyString, getLengthString, getViewString, isValidString}};
+use crate::{cbindings::{CEndpointResponse, CEventHandler, CServiceError, CString, CUuid, createString, destroyString, getLengthString, getViewString, isValidString}, safe_api::ServiceError};
 
 
 impl From<CUuid> for uuid::Uuid {
@@ -61,4 +61,39 @@ unsafe extern "C" fn drop_string(str: *const u8, length: usize) {
     let slice = unsafe { std::slice::from_raw_parts_mut(str as *mut u8, length) };
     let string = unsafe { std::str::from_utf8_unchecked_mut(slice) };
     let _ = unsafe { Box::from_raw(string) };
+}
+
+impl CEventHandler {
+    pub fn new_error(error: CServiceError) -> Self {
+        Self {
+            function: None,
+            handler_id: CUuid { higher: 0, lower: 0},
+            error,
+        }
+    }
+}
+
+impl CEndpointResponse {
+    pub fn new_error(error: CServiceError) -> Self {
+        Self {
+            response: CString::from(""),
+            error,
+        }
+    }
+}
+
+pub trait OkOrCoreInternalError<T> {
+    fn ok_or_core(self) -> Result<T, ServiceError>;
+}
+
+impl<T> OkOrCoreInternalError<T> for Option<T> {
+    fn ok_or_core(self) -> Result<T, ServiceError> {
+        self.ok_or(ServiceError::CoreInternalError)
+    }
+}
+
+impl<T, E> OkOrCoreInternalError<T> for Result<T,E> {
+    fn ok_or_core(self) -> Result<T, ServiceError> {
+        self.map_err(|_| ServiceError::CoreInternalError)
+    }
 }

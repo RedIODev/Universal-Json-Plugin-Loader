@@ -19,7 +19,7 @@ use crate::{
     util::{ArcMapExt, LockedMap, TrueOrErr},
 };
 
-pub type Plugins = LockedMap<CUuid, Plugin>;
+pub type Plugins = LockedMap<Uuid, Plugin>;
 
 pub struct Loader {
     plugins: LockedMap<CUuid, Plugin>,

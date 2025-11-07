@@ -4,23 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-thiserror = "2.0.16"
+thiserror = "2.0.17"
 derive_more = { version = "2.0.1", features = ["display"] }
-derive-enum-from-into = "0.2.0"
-uuid = { version = "1", optional = true }
-concat-idents = { version = "1.1.5", optional = true }
+derive-enum-from-into = "0.2.1"
+uuid = { version = "1.18.1", optional = true }
 trait_fn = { path = "../trait_fn", optional = true }
 
 [build-dependencies]
-bindgen_helpers = "0.5.0"
+bindgen_helpers = "0.5.1"
 cbindgen = "0.29.2"
-cc = "1.2.44"
-
-#const-assert = "1.0.1"
+cc = "1.2.45"
 
 [lib]
 crate-type = ["staticlib", "lib"]
 
 [features]
 default = ["safe"]
-safe = ["dep:uuid", "dep:concat-idents", "dep:trait_fn"]
+safe = ["dep:uuid", "dep:trait_fn"]

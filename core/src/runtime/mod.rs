@@ -36,7 +36,7 @@ pub enum PowerState {
 }
 
 pub struct Runtime {
-    core_id: CUuid,
+    core_id: Uuid,
     power_state: AtomicPowerState,
     main_handle: Thread,
     event_pool: ThreadPool,
@@ -115,7 +115,7 @@ impl Runtime {
         } // Mutex end
     }
 
-    pub fn core_id(&self) -> CUuid {
+    pub fn core_id(&self) -> Uuid {
         self.core_id
     }
 

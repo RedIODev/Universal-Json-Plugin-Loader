@@ -7,5 +7,6 @@ edition = "2024"
 serde_json = "1.0.145"
 finance-together-api = { path = "../api" }
 
+
 [lib]
 crate-type = ["dylib"]

@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 
 use trait_fn::fn_trait;
 use uuid::Uuid;
@@ -40,7 +39,7 @@ pub trait EventHandlerFunc {
 
 #[fn_trait]
 pub trait HandlerRegisterService {
-    fn safe<C: ContextSupplier, S: AsRef<str>, H: Fn(C, S), T: AsRef<str>>(handler: H, plugin_id: Uuid, event_name: T, _: PhantomData<(C, S)>) -> Result<EventHandler, ServiceError>;
+    fn safe<T: AsRef<str>>(handler: EventHandlerFuncUnsafeFP, plugin_id: Uuid, event_name: T) -> Result<EventHandler, ServiceError>;
 
     unsafe extern "C" fn adapter<C: ContextSupplier>(
         handler: CEventHandlerFP,
@@ -53,7 +52,7 @@ pub trait HandlerRegisterService {
         let Ok(event_name) = event_name.as_str() else {
             return CEventHandler::new_error(CServiceError::InvalidInput2);
         };
-        Self::safe(handler.to_safe::<C, &str>(), plugin_id.into(), event_name, PhantomData).into()
+        Self::safe(handler, plugin_id.into(), event_name).into()
     }
 
     fn from_fp<E: EventHandlerFunc, T: AsRef<str>>(self: HandlerRegisterServiceUnsafeFP) -> impl Fn(E, Uuid, T) -> Result<EventHandler, ServiceError> {
@@ -214,16 +213,15 @@ pub trait RequestHandlerFunc {
 
 #[fn_trait]
 pub trait EndpointRegisterService {
-    fn safe<C:ContextSupplier, S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>, R: AsRef<str>, F: Fn(C, R) -> Result<EndpointResponse, ServiceError>>(
+    fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
         args_schema: S,
         response_schema: T,
         plugin_id: Uuid,
         endpoint_name: Q,
-        _t: PhantomData<(C, R)>,
-        handler: F,
+        handler: RequestHandlerFuncUnsafeFP,
     ) -> Result<(), ServiceError>;
 
-    unsafe extern "C" fn adapter<C: ContextSupplier>(
+    unsafe extern "C" fn adapter(
         args_schema: CString,
         response_schema: CString,
         plugin_id: CUuid,
@@ -247,8 +245,7 @@ pub trait EndpointRegisterService {
             response_schema,
             plugin_id.into(),
             endpoint_name,
-            PhantomData::<(C, &str)>,
-            handler.to_safe(),
+            handler,
         )
         .into()
     }
@@ -257,12 +254,11 @@ pub trait EndpointRegisterService {
         S: AsRef<str>,
         T: AsRef<str>,
         Q: AsRef<str>,
-        R: AsRef<str>,
         F: RequestHandlerFunc,
     >(
         self: EndpointRegisterServiceUnsafeFP,
-    ) -> impl Fn(S, T, Uuid, Q, PhantomData<R>, F) -> Result<(), ServiceError> {
-        move |args_schema, response_schema, plugin_id, endpoint_name, _, _| unsafe {
+    ) -> impl Fn(S, T, Uuid, Q) -> Result<(), ServiceError> {
+        move |args_schema, response_schema, plugin_id, endpoint_name| unsafe {
             self(
                 args_schema.as_ref().into(),
                 response_schema.as_ref().into(),

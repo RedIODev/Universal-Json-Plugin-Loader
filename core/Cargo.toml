@@ -28,4 +28,5 @@ convert_case = "0.8.0"
 #"help", "usage", "error-context", "suggestions", 
 clap = { version = "4.5.49", features = ["derive", "cargo"] }
 
+trait_fn = { path = "../trait_fn"}
 finance-together-api = { path = "../api" }
