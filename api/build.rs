@@ -1,7 +1,6 @@
-use std::{env, fmt::format, path::PathBuf, str::FromStr};
+use std::{env, path::PathBuf, str::FromStr};
 
-use bindgen_helpers::{
-    IdentRenamer, Regex, Renamer,
+use bindgen_helpers::{Renamer,
     callbacks::{ItemKind, ParseCallbacks},
     rename_enum,
 };
@@ -33,11 +32,6 @@ fn main() {
 
     let mut renamer = Renamer::new(false);
 
-    // renamer.rename_item("EventHandler", "CEventHandler");
-    // renamer.rename_item("EventHandlerFP", "CEventHandlerFP");
-    // renamer.rename_item("RequestHandlerFP", "CRequestHandlerFP");
-    // renamer.rename_item("String", "CString");
-    // renamer.rename_item("Uuid", "CUuid");
     rename_enum!(
         renamer,
         "ServiceError" => "ServiceError",
