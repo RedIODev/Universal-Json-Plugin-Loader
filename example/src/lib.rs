@@ -1,13 +1,13 @@
 use std::io::stdin;
 
-use finance_together_api::cbindings::{emptyListString, CString, CUuid, ContextSupplier, PluginInfo};
+use finance_together_api::cbindings::{emptyListString, CString, CUuid, CContextSupplier, CPluginInfo};
 use serde_json::json;
 
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn pluginMain(uuid: CUuid) -> PluginInfo {
+pub unsafe extern "C" fn pluginMain(uuid: CUuid) -> CPluginInfo {
     println!("Main: Test from plugin! {:?}", uuid);
-    let info = PluginInfo {
+    let info = CPluginInfo {
         name: CString::from("ExamplePlugin"),
         version: CString::from("0.0.1"),
         dependencies: unsafe { emptyListString() },
@@ -16,7 +16,7 @@ pub unsafe extern "C" fn pluginMain(uuid: CUuid) -> PluginInfo {
     info
 }
 
-unsafe extern "C" fn init_test(context: ContextSupplier, args: CString) {
+unsafe extern "C" fn init_test(context: CContextSupplier, args: CString) {
     println!("Plugin: Init: Test from plugin! Args:{}", args.as_str().expect("msg"));
     let mut input = String::new();
     stdin().read_line(&mut input).expect("read success");

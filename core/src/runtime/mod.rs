@@ -8,20 +8,16 @@ use std::{
 };
 
 use crate::{
-    config::Config, governor::{get_gov, Governor}, loader::Loader, runtime::{
-        endpoint::{endpoint_register, endpoint_request, endpoint_unregister},
-        event::{
-            event_register, event_trigger, event_unregister, handler_register, handler_unregister,
-        },
-    }, GOV
+    GOV, config::Config, governor::{Governor, get_gov}, loader::Loader, runtime::{endpoint::{EndpointRegister, EndpointRequest, EndpointUnregister}, event::{EventHandlerRegister, EventRegister, EventTrigger, EventUnregister, HandlerUnregister}}
 };
 use anyhow::Result;
 use atomic_enum::atomic_enum;
-use finance_together_api::cbindings::{ApplicationContext, CUuid};
+use finance_together_api::safe_api::{ApplicationContext, pointer_traits::{ContextSupplier, EventTriggerService}};
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use threadpool::ThreadPool;
+use trait_fn::trait_fn;
 use uuid::Uuid;
 use clap::crate_version;
 
@@ -45,7 +41,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new() -> Self {
         Self {
-            core_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()),
+            core_id: Uuid::new_v4(),
             power_state: AtomicPowerState::new(PowerState::Running),
             main_handle: std::thread::current(),
             event_pool: ThreadPool::new(
@@ -72,16 +68,21 @@ impl Runtime {
                 .collect::<Vec<_>>()
         } // Mutex end
 
-        unsafe {
-            event_trigger(
-                core_id,
-                "core:init".into(),
-                json!({"version": crate_version!(), "plugins": plugins})
-                    .to_string()
-                    .into(),
-            )
-        }
-        .result()?;
+        EventTrigger::safe(
+            core_id, 
+            "core:init", 
+            json!({"version": crate_version!(), "plugins": plugins})
+                    .to_string())?;
+        // unsafe {
+        //     event_trigger(
+        //         core_id,
+        //         "core:init".into(),
+        //         json!({"version": crate_version!(), "plugins": plugins})
+        //             .to_string()
+        //             .into(),
+        //     )
+        // }
+        // .result()?;
         Ok(())
     }
 
@@ -141,15 +142,29 @@ fn schema_from_file(file: &str) -> Validator {
         .expect("invalid core schema!")
 }
 
-unsafe extern "C" fn context_supplier() -> ApplicationContext {
-    ApplicationContext {
-        handlerRegisterService: Some(handler_register),
-        HandlerUnregisterService: Some(handler_unregister),
-        eventRegisterService: Some(event_register),
-        eventUnregisterService: Some(event_unregister),
-        eventTriggerService: Some(event_trigger),
-        endpointRegisterService: Some(endpoint_register),
-        endpointUnregisterService: Some(endpoint_unregister),
-        endpointRequestService: Some(endpoint_request),
-    }
+#[trait_fn(ContextSupplier)]
+fn ContextSupplierImpl() -> ApplicationContext {
+    ApplicationContext::new::<
+        ContextSupplierImpl, 
+        EventHandlerRegister,
+        HandlerUnregister,
+        EventRegister,
+        EventUnregister,
+        EventTrigger,
+        EndpointRegister,
+        EndpointUnregister,
+        EndpointRequest>()
 }
+
+// unsafe extern "C" fn context_supplier() -> ApplicationContext {
+//     ApplicationContext {
+//         handlerRegisterService: Some(handler_register),
+//         HandlerUnregisterService: Some(handler_unregister),
+//         eventRegisterService: Some(event_register),
+//         eventUnregisterService: Some(event_unregister),
+//         eventTriggerService: Some(event_trigger),
+//         endpointRegisterService: Some(endpoint_register),
+//         endpointUnregisterService: Some(endpoint_unregister),
+//         endpointRequestService: Some(endpoint_request),
+//     }
+// }

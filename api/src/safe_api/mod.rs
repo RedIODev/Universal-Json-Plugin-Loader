@@ -146,6 +146,10 @@ impl EventHandler {
         self.function.to_safe()(context_supplier, args)
     }
 
+    pub fn handler(&self) -> EventHandlerFuncUnsafeFP {
+        self.function
+    }
+
     pub fn id(&self) -> Uuid {
         self.handler_id
     }

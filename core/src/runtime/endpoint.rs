@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
-use finance_together_api::safe_api::{ApplicationContext, EndpointResponse, ServiceError, misc::OkOrCoreInternalError, pointer_traits::{EndpointRegisterService, EndpointRequestService, EndpointUnregisterService, RequestHandlerFunc, RequestHandlerFuncToSafe, RequestHandlerFuncUnsafeFP}};
+use finance_together_api::safe_api::{ApplicationContext, EndpointResponse, ServiceError, misc::OkOrCoreInternalError, pointer_traits::{EndpointRegisterService, EndpointRequestService, EndpointUnregisterService, EventTriggerService, RequestHandlerFunc, RequestHandlerFuncToSafe, RequestHandlerFuncUnsafeFP}};
 use im::HashMap;
 use jsonschema::Validator;
 use serde::Deserialize;
@@ -10,8 +10,8 @@ use trait_fn::trait_fn;
 use uuid::Uuid;
 
 use crate::{
-    governor::{get_gov},
-    runtime::{schema_from_file, PowerState}, util::LockedMap,
+    governor::get_gov,
+    runtime::{ContextSupplierImpl, EventTrigger, PowerState, schema_from_file}, util::LockedMap,
 };
 
 pub type Endpoints = LockedMap<Box<str>, Endpoint>;
@@ -204,8 +204,13 @@ pub(super) fn EndpointRegister
 
 
     let core_id = get_gov().ok_or_core()?.runtime().core_id();
-
-    todo!()
+    EventTrigger::safe(core_id, "core:endpoint", json!({
+                "endpoint_name": full_name,
+                "argument_schema": argument_schema_json,
+                "response_schema": response_schema_json
+            })
+            .to_string())?;
+    Ok(())
 //     event_trigger(
 //             core_id,
 //             "core:endpoint".into(),
@@ -356,7 +361,7 @@ pub(super) fn EndpointRequest<S: AsRef<str>, T: AsRef<str>>(endpoint_name: S, ar
         endpoint.request_handler.to_safe()
     };
 
-    let response = handler(todo!() , args)?; //context supplier
+    let response = handler(ContextSupplierImpl , args)?; //context supplier
 
     let response_json = serde_json::from_str(response.response()
                 .map_err(|_| ServiceError::InvalidResponse)?)

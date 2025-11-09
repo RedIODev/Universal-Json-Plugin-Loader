@@ -9,49 +9,54 @@
 //     getLengthString, getViewString, isValidListString, isValidString,
 // };
 
+use derive_more::Display;
+use thiserror::Error;
+
+use crate::cbindings::{CList_String, CString, createListString, destroyListString, isValidListString};
 
 
 
 
-// impl Drop for CList_String { //make compatible with string slices slices
-//     fn drop(&mut self) {
-//         unsafe { destroyListString(self) };
-//     }
-// }
 
-// impl CList_String {
-//     pub fn as_array(&self) -> Result<&[CString], InvalidList> {
-//         if unsafe { !isValidListString(self) } {
-//             return Err(InvalidList);
-//         }
-//         if self.data.is_null() {
-//             return Ok(&[]);
-//         }
-//         let slice = unsafe { std::slice::from_raw_parts(self.data, self.length as usize) };
-//         Ok(slice)
-//     }
-// }
+impl Drop for CList_String { //make compatible with string slices slices
+    fn drop(&mut self) {
+        unsafe { destroyListString(self) };
+    }
+}
 
-// impl<T> From<T> for CList_String
-// where
-//     T: Into<Box<[CString]>>,
-// {
-//     fn from(value: T) -> Self {
-//         let boxed_list: Box<[_]> = value.into();
-//         let leaked = unsafe { &mut *Box::into_raw(boxed_list) };
-//         let ptr = leaked.as_mut_ptr();
-//         let length = leaked.len();
-//         unsafe { createListString(ptr, length as u32, Some(drop_list_string)) }
-//     }
-// }
+impl CList_String {
+    pub fn as_array(&self) -> Result<&[CString], InvalidList> {
+        if unsafe { !isValidListString(self) } {
+            return Err(InvalidList);
+        }
+        if self.data.is_null() {
+            return Ok(&[]);
+        }
+        let slice = unsafe { std::slice::from_raw_parts(self.data, self.length as usize) };
+        Ok(slice)
+    }
+}
 
-// unsafe extern "C" fn drop_list_string(list: *mut CString, length: u32) {
-//     let slice = unsafe { std::slice::from_raw_parts_mut(list, length as usize) };
-//     let _ = unsafe { Box::from_raw(slice) };
-// }
+impl<T> From<T> for CList_String
+where
+    T: Into<Box<[CString]>>,
+{
+    fn from(value: T) -> Self {
+        let boxed_list: Box<[_]> = value.into();
+        let leaked = unsafe { &mut *Box::into_raw(boxed_list) };
+        let ptr = leaked.as_mut_ptr();
+        let length = leaked.len();
+        unsafe { createListString(ptr, length as u32, Some(drop_list_string)) }
+    }
+}
 
-// #[derive(Error, Display, Debug)]
-// pub struct InvalidList;
+unsafe extern "C" fn drop_list_string(list: *mut CString, length: u32) {
+    let slice = unsafe { std::slice::from_raw_parts_mut(list, length as usize) };
+    let _ = unsafe { Box::from_raw(slice) };
+}
+
+#[derive(Error, Display, Debug)]
+pub struct InvalidList;
 
 
 

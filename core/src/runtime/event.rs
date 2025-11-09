@@ -1,7 +1,7 @@
 use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 use finance_together_api::{
-    cbindings::{CEventHandler, CEventHandlerFP, CString, CUuid}, safe_api::{EventHandler, ServiceError, misc::OkOrCoreInternalError, pointer_traits::{EventHandlerFuncUnsafeFP, EventRegisterService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService}},
+    safe_api::{EventHandler, ServiceError, misc::OkOrCoreInternalError, pointer_traits::{EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService}},
 };
 use im::HashMap;
 use jsonschema::Validator;
@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::{
     governor::get_gov,
     loader::Plugin,
-    runtime::{context_supplier, schema_from_file, PowerState},
+    runtime::{ContextSupplierImpl, PowerState, schema_from_file},
     util::{ArcMapExt, LockedMap, TrueOrErr},
 };
 
@@ -38,7 +38,7 @@ impl Event {
 
 #[derive(Clone)]
 pub struct StoredEventHandler {
-    handler: EventHandlerFuncUnsafeFP,
+    handler: EventHandler,
     plugin_id: Uuid,
 }
 
@@ -57,7 +57,7 @@ impl PartialEq for StoredEventHandler {
 impl Eq for StoredEventHandler {}
 
 impl StoredEventHandler {
-    pub fn new(handler: EventHandlerFuncUnsafeFP, plugin_id: Uuid) -> Self {
+    pub fn new(handler: EventHandler, plugin_id: Uuid) -> Self {
         Self { handler, plugin_id }
     }
 }
@@ -100,10 +100,10 @@ pub(super) fn EventHandlerRegister
     <T: AsRef<str>>
     (handler: EventHandlerFuncUnsafeFP, plugin_id: Uuid, event_name: T) -> Result<EventHandler, ServiceError> {
     let event_handler = EventHandler::new_unsafe(handler, Uuid::new_v4());
-    let stored_handler = StoredEventHandler::new(handler, plugin_id);
+    let stored_handler = StoredEventHandler::new(event_handler, plugin_id);
 
     get_gov().ok_or_core()?.events().rcu_alter(event_name.as_ref(), |event| {
-        event.handlers.insert(stored_handler).or_error(ServiceError::Duplicate)
+        event.handlers.insert(stored_handler.clone()).or_error(ServiceError::Duplicate)
     })?;
 
     Ok(event_handler)
@@ -156,16 +156,16 @@ pub(super) fn HandlerUnregister<S: AsRef<str>>(
         plugin_id: Uuid,
         event_name: S,
     ) -> Result<(), ServiceError> {
-    get_gov().ok_or_core()?.events().rcu_alter(event_name, |event| {
+    get_gov().ok_or_core()?.events().rcu_alter(event_name.as_ref(), |event| {
         let handler = event
                 .handlers
                 .iter()
-                .find(|h| h.handler.handler_id == handler_id)
+                .find(|h| h.handler.id() == handler_id)
                 .ok_or(ServiceError::NotFound)?;
         if handler.plugin_id != plugin_id {
             return Err(ServiceError::Unauthorized);
         }
-        event.handlers.remove(&handler);
+        event.handlers.remove(&handler.clone());
         Ok(())
     })?;
 
@@ -233,18 +233,13 @@ pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
 
     let core_id = get_gov().ok_or_core()?.runtime().core_id();
 
-    todo!()
-
-    // event_trigger(
-    //         core_id,
-    //         "core:event".into(),
-    //         json!({
-    //                 "event_name": full_name,
-    //                 "argument_schema": argument_schema
-    //             })
-    //             .to_string()
-    //             .into(),
-    //     )
+    EventTrigger::safe(core_id, 
+        "core:event", 
+        json!({
+                    "event_name": full_name,
+                    "argument_schema": argument_schema_json
+                })
+                .to_string())
 }
 
 // pub(super) unsafe extern "C" fn event_register(
@@ -346,64 +341,108 @@ pub(super) fn EventUnregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> 
 //     ServiceError::Success
 // }
 
-pub unsafe extern "C" fn event_trigger(
-    plugin_id: CUuid,
-    event_name: CString,
-    arguments: CString,
-) -> ServiceError {
-    let Ok(event_name) = event_name.as_str() else {
-        return ServiceError::InvalidInput1;
-    };
-    let Ok(arguments) = arguments.as_str() else {
-        return ServiceError::InvalidInput2;
-    };
-    {
-        // Mutex start
-        let Ok(gov) = get_gov() else {
-            return ServiceError::CoreInternalError;
-        };
-        
-        match gov.runtime().check_power() {
-            PowerState::Shutdown | PowerState::Restart => return ServiceError::ShutingDown,
-            _ => {}
-        }
+#[trait_fn(EventTriggerService)]
+pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
+        plugin_id: Uuid,
+        event_name: S,
+        args: T,
+    ) -> Result<(), ServiceError> {
+    match get_gov().ok_or_core()?.runtime().check_power() {
+        PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
+        _ => {}
+    }
+
+    let event_arguments_json = serde_json::from_str(args.as_ref())
+            .map_err(|_| ServiceError::InvalidInput2)?;
+    let funcs = {
+        let gov = get_gov().ok_or_core()?;
         let events = gov.events().load();
-        let Some(event) = events.get(event_name) else {
-            return ServiceError::NotFound;
-        };
+        let event = events.get(event_name.as_ref())
+                .ok_or(ServiceError::NotFound)?;
         if event.plugin_id != plugin_id {
-            return ServiceError::Unauthorized;
+            return Err(ServiceError::Unauthorized);
         }
-        let Ok(json_arguments) = serde_json::from_str(arguments) else {
-            return ServiceError::InvalidInput2;
-        };
-        if let Err(_) = event.argument_validator.validate(&json_arguments) {
-            return ServiceError::InvalidInput2;
-        }
-        let funcs = if event_name != "core:init" {
-            event.handlers.iter().map(|h| h.handler.function).collect()
+
+        event.argument_validator.validate(&event_arguments_json)
+                .map_err(|_| ServiceError::InvalidInput2)?;
+        if event_name.as_ref() != "core:init" {
+            event.handlers.iter().map(|h| h.handler.handler()).collect()
         } else {
             let Some(funcs) = sort_handlers(event.handlers.iter(), &gov.loader().plugins().load())
             else {
-                return ServiceError::CoreInternalError;
+                return Err(ServiceError::CoreInternalError);
             };
             funcs
-        };
-        let arguments = arguments.to_owned();
-        gov.runtime().event_pool.execute(move || {
-            for func in funcs {
-                unsafe { func(Some(context_supplier), arguments.clone().into()) } // might lock mutex
-            }
-        });
-    }; // Mutex end
-
-    ServiceError::Success
+        }
+    };
+    let executor = get_gov().ok_or_core()?.runtime().event_pool.clone();
+    let owned_args = args.as_ref().to_string();
+    executor.execute(move || {
+        for func in funcs {
+            func.to_safe()(ContextSupplierImpl, owned_args.clone());
+        }
+    });
+    Ok(())
 }
+
+// pub unsafe extern "C" fn event_trigger(
+//     plugin_id: CUuid,
+//     event_name: CString,
+//     arguments: CString,
+// ) -> ServiceError {
+//     let Ok(event_name) = event_name.as_str() else {
+//         return ServiceError::InvalidInput1;
+//     };
+//     let Ok(arguments) = arguments.as_str() else {
+//         return ServiceError::InvalidInput2;
+//     };
+//     {
+//         // Mutex start
+//         let Ok(gov) = get_gov() else {
+//             return ServiceError::CoreInternalError;
+//         };
+        
+//         match gov.runtime().check_power() {
+//             PowerState::Shutdown | PowerState::Restart => return ServiceError::ShutingDown,
+//             _ => {}
+//         }
+//         let events = gov.events().load();
+//         let Some(event) = events.get(event_name) else {
+//             return ServiceError::NotFound;
+//         };
+//         if event.plugin_id != plugin_id {
+//             return ServiceError::Unauthorized;
+//         }
+//         let Ok(json_arguments) = serde_json::from_str(arguments) else {
+//             return ServiceError::InvalidInput2;
+//         };
+//         if let Err(_) = event.argument_validator.validate(&json_arguments) {
+//             return ServiceError::InvalidInput2;
+//         }
+//         let funcs = if event_name != "core:init" {
+//             event.handlers.iter().map(|h| h.handler.function).collect()
+//         } else {
+//             let Some(funcs) = sort_handlers(event.handlers.iter(), &gov.loader().plugins().load())
+//             else {
+//                 return ServiceError::CoreInternalError;
+//             };
+//             funcs
+//         };
+//         let arguments = arguments.to_owned();
+//         gov.runtime().event_pool.execute(move || {
+//             for func in funcs {
+//                 unsafe { func(Some(context_supplier), arguments.clone().into()) } // might lock mutex
+//             }
+//         });
+//     }; // Mutex end
+
+//     ServiceError::Success
+// }
 
 fn sort_handlers<'a>(
     handlers: impl Iterator<Item = &'a StoredEventHandler>,
-    stored_plugins: &HashMap<CUuid, Plugin>,
-) -> Option<Vec<EventHandlerFP>> {
+    stored_plugins: &HashMap<Uuid, Plugin>,
+) -> Option<Vec<EventHandlerFuncUnsafeFP>> {
     let nodes: Vec<_> = handlers
         .map(|handler| {
             TopoNode::create_dependency_entry(handler, || stored_plugins.values(), stored_plugins)
@@ -422,20 +461,20 @@ fn sort_handlers<'a>(
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
-struct TopoNode(CUuid, Option<EventHandlerFP>);
+struct TopoNode(Uuid, Option<EventHandlerFuncUnsafeFP>);
 
 impl TopoNode {
     fn create_dependency_entry<'a, F, I>(
         handler: &StoredEventHandler,
         plugins: F,
-        stored_plugins: &HashMap<CUuid, Plugin>,
+        stored_plugins: &HashMap<Uuid, Plugin>,
     ) -> Option<(TopoNode, HashSet<TopoNode>)>
     where
         F: Fn() -> I,
         I: Iterator<Item = &'a Plugin>,
     {
         let plugin = stored_plugins.get(&handler.plugin_id)?;
-        let node = TopoNode(handler.plugin_id, Some(handler.handler.function));
+        let node = TopoNode(handler.plugin_id, Some(handler.handler.handler()));
         let deps = plugin
             .dependencies
             .iter()
@@ -454,7 +493,7 @@ impl TopoNode {
 
     fn find_id_for_plugin(
         plugin: &Plugin,
-        stored_plugins: &HashMap<CUuid, Plugin>,
+        stored_plugins: &HashMap<Uuid, Plugin>,
     ) -> Option<TopoNode> {
         stored_plugins.iter().find_map(|(key, value)| {
             if value.name == plugin.name {

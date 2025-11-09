@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
-use finance_together_api::cbindings::ServiceError;
+use finance_together_api::safe_api::ServiceError;
 use im::{HashMap, HashSet, Vector};
 use ouroboros::self_referencing;
 use std::hash::Hash;
@@ -31,27 +31,23 @@ where
     where
         F: Fn(&mut V) -> Result<(), ServiceError>,
     {
-        let mut error = ServiceError::Success;
+        let mut error = Result::Ok(());
         self.rcu(|map_inner| {
             map_inner.alter(
                 |value_opt| {
                     let Some(mut value) = value_opt else {
-                        error = ServiceError::NotFound;
+                        error = Err(ServiceError::NotFound);
                         return value_opt;
                     };
                     if let Err(err) = f(&mut value) {
-                        error = err;
+                        error = Err(err);
                     }
                     return Some(value);
                 },
                 key.clone().into(),
             )
         });
-        if error == ServiceError::Success {
-            Ok(())
-        } else {
-            Err(error)
-        }
+        error
     }
 
     type Inner = HashMap<K, V>;
@@ -61,19 +57,15 @@ where
     where
         F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>,
     {
-        let mut error = ServiceError::Success;
+        let mut error = Result::Ok(());
         self.rcu(|map_inner| match f(map_inner) {
             Ok(map) => map,
             Err(err) => {
-                error = err;
+                error = Err(err);
                 (**map_inner).clone()
             }
         });
-        if error == ServiceError::Success {
-            Ok(())
-        } else {
-            Err(error)
-        }
+        error
     }
 }
 

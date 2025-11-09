@@ -2,14 +2,11 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use derive_more::Display;
+use finance_together_api::{cbindings::{CPluginInfo, CString, CUuid}, safe_api::{EventHandler, ServiceError}};
 use libloading::{Library, Symbol};
 
 use anyhow::Result;
 
-use finance_together_api::{
-    EventHandler,
-    cbindings::{CString, CUuid, PluginInfo, ServiceError},
-};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -22,7 +19,7 @@ use crate::{
 pub type Plugins = LockedMap<Uuid, Plugin>;
 
 pub struct Loader {
-    plugins: LockedMap<CUuid, Plugin>,
+    plugins: LockedMap<Uuid, Plugin>,
 }
 
 #[derive(Clone)]
@@ -43,9 +40,9 @@ impl Loader {
     pub unsafe fn load_library(filename: &str) -> Result<()> {
         let lib = unsafe { Library::new(filename)? };
         let main =
-            unsafe { lib.get::<Symbol<unsafe extern "C" fn(CUuid) -> PluginInfo>>(b"pluginMain")? };
-        let plugin_id = CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair());
-        let plugin_info = unsafe { main(plugin_id) };
+            unsafe { lib.get::<Symbol<unsafe extern "C" fn(CUuid) -> CPluginInfo>>(b"pluginMain")? };
+        let plugin_id = Uuid::new_v4();
+        let plugin_info = unsafe { main(plugin_id.into()) };
         let dependencies = plugin_info
             .dependencies
             .as_array()?
@@ -82,10 +79,7 @@ impl Loader {
                 return Err(LoadError::DuplicateName.into());
             }
             let handler = StoredEventHandler::new(
-                EventHandler {
-                    function: init_handler,
-                    handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()),
-                },
+                EventHandler::new_unsafe(init_handler, Uuid::new_v4()),
                 plugin_id,
             );
             gov.events()
