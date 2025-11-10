@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
-use finance_together_api::safe_api::ServiceError;
+use finance_together_api::ServiceError;
 use im::{HashMap, HashSet, Vector};
 use ouroboros::self_referencing;
 use std::hash::Hash;

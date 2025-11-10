@@ -5,7 +5,7 @@
     "type": "object",
 
     "properties": {
-        "version": {
+        "core_version": {
             "type": "string"
         },
         "plugins": {
@@ -23,5 +23,5 @@
             }
         }
     },
-    "required": ["version", "plugins"]
+    "required": ["core_version", "plugins"]
 }

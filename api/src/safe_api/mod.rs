@@ -1,11 +1,12 @@
 
 use std::fmt::Debug;
 
+use std::fmt::Display;
+
 use derive_more::Display;
 use thiserror::Error;
 use uuid::Uuid;
 
-pub mod misc;
 pub mod pointer_traits;
 
 #[derive(Debug, Clone, Copy, Display, Error)]
@@ -27,13 +28,30 @@ pub enum ServiceError {
     ShutingDown,
 }
 
-use crate::cbindings::CApplicationContext;
-use crate::safe_api::misc::{OkOrCoreInternalError, StringConventError};
+use crate::cbindings::CApiVersion;
+use crate::cbindings::{CApplicationContext, CList_String, CPluginInfo};
+use crate::misc::{StringConventError, StringListError};
 use crate::safe_api::pointer_traits::{ContextSupplier, EndpointRegisterService, EndpointRegisterServiceToSafe, EndpointRegisterServiceUnsafeFP, EndpointRequestService, EndpointRequestServiceToSafe, EndpointRequestServiceUnsafeFP, EndpointUnregisterService, EndpointUnregisterServiceUnsafeFP, EventHandlerFunc, EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventRegisterServiceToSafe, EventRegisterServiceUnsafeFP, EventTriggerService, EventTriggerServiceToSafe, EventTriggerServiceUnsafeFP, EventUnregisterService, EventUnregisterServiceToSafe, EventUnregisterServiceUnsafeFP, HandlerRegisterService, HandlerRegisterServiceToSafe, HandlerRegisterServiceUnsafeFP, HandlerUnregisterService, HandlerUnregisterServiceToSafe, HandlerUnregisterServiceUnsafeFP, RequestHandlerFunc};
 use crate::{
     cbindings::{CEndpointResponse, CEventHandler, CServiceError, CString},
     
 };
+
+pub trait OkOrCoreInternalError<T> {
+    fn ok_or_core(self) -> Result<T, ServiceError>;
+}
+
+impl<T> OkOrCoreInternalError<T> for Option<T> {
+    fn ok_or_core(self) -> Result<T, ServiceError> {
+        self.ok_or(ServiceError::CoreInternalError)
+    }
+}
+
+impl<T, E> OkOrCoreInternalError<T> for Result<T,E> {
+    fn ok_or_core(self) -> Result<T, ServiceError> {
+        self.map_err(|_| ServiceError::CoreInternalError)
+    }
+}
 
 impl CServiceError {
     pub const fn to_rust(self) -> Result<(), ServiceError> {
@@ -234,6 +252,12 @@ impl From<CEndpointResponse> for Result<EndpointResponse, ServiceError> {
     }
 }
 
+impl Display for EndpointResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self.response.as_str().expect("invalid string printed!"), f)
+    }
+}
+
 pub struct ApplicationContext {
     handler_register_service: HandlerRegisterServiceUnsafeFP,
     handler_unregister_service: HandlerUnregisterServiceUnsafeFP,
@@ -369,124 +393,93 @@ impl From<ApplicationContext> for CApplicationContext {
     }
 }
 
-// pub trait EventHandlerFP: Fn() -> ApplicationContext {}
+pub struct PluginInfo {
+    name: CString,
+    version: CString,
+    dependencies: CList_String,
+    init_handler: EventHandlerFuncUnsafeFP,
+    api_version: CApiVersion
+}
 
-// impl<T> EventHandlerFP for T where T: Fn() -> ApplicationContext {}
+impl CPluginInfo {
+    pub fn to_rust(self) -> Result<PluginInfo, ServiceError> {
+        Ok(PluginInfo { 
+            name: self.name, 
+            version: self.version, 
+            dependencies: self.dependencies, 
+            init_handler: self.init_handler.ok_or_core()?,
+            api_version: self.api_version  
+        })
+    }
+}
 
-// #[derive(Clone)]
-// pub struct EventHandler<F> { //Find a better way around the fp and trait impl problem.
-//     pub function: F,
-//     pub handler_id: Uuid,
-// }
+impl PluginInfo {
+    pub fn to_c(self) -> CPluginInfo {
+        CPluginInfo { 
+            name: self.name, 
+            version: self.version, 
+            dependencies: 
+            self.dependencies, 
+            init_handler: Some(self.init_handler),
+            api_version: self.api_version
+        }
+    }
 
-// #[derive(Debug, Clone, Copy, Display, Error)]
-// pub struct NullFunctionPointerError;
+    pub fn new
+    <E: EventHandlerFunc, N: Into<Box<str>>, V: Into<Box<str>>, D: Into<Box<[CString]>>>
+    (name: N, version: V, dependencies: D, api_version: CApiVersion) -> Self {
+        Self { 
+            name: name.into().into(), 
+            version: version.into().into(), 
+            dependencies: dependencies.into().into(), 
+            init_handler: E::unsafe_fp(),
+            api_version
+        }
+    }
 
-// impl<F> TryFrom<CEventHandler> for EventHandler<F> where F:  {
-//     type Error = NullFunctionPointerError;
+    pub fn new_unsafe<N: Into<Box<str>>, V: Into<Box<str>>, D: Into<Box<[CString]>>>(name: N, version: V, dependencies: D, handler: EventHandlerFuncUnsafeFP, api_version: CApiVersion) -> Self {
+        Self { 
+            name: name.into().into(), 
+            version: version.into().into(), 
+            dependencies: dependencies.into().into(), 
+            init_handler: handler,
+            api_version
+        }
+    }
 
-//     fn try_from(value: CEventHandler) -> Result<Self, Self::Error> {
-//         let Some(function) = value.function else {
-//             return Err(NullFunctionPointerError);
-//         };
-//         Ok(EventHandler {
-//             function: Rc::new(|| unsafe { function().try_into().expect("msg")}),
-//             handler_id: value.handler_id.into(),
-//         })
-//     }
-// }
+    pub fn name(&self) -> Result<&str, StringConventError> {
+        self.name.as_str()
+    }
 
-// impl From<EventHandler> for CEventHandler {
-//     fn from(value: EventHandler) -> Self {
-//         Self {
-//             function: Some(value.function),
-//             handler_id: value.handler_id.into(),
-//             error: CServiceError::Success,
-//         }
-//     }
-// }
+    pub fn version(&self) -> Result<&str, StringConventError> {
+        self.name.as_str()
+    }
 
-// impl<STR:Into<Box<str>>> From<Result<STR, ServiceError>> for EndpointResponse {
-//     fn from(value: Result<STR, ServiceError>) -> Self {
-//         match value {
-//             Ok(str) => EndpointResponse { response: str.into().into(), error: CServiceError::Success },
-//             Err(e) => EndpointResponse { response: CString::from(""), error: e.into() }
-//         }
-//     }
-// }
+    pub fn dependencies(&self) -> Result<Vec<&str>, StringListError> {
+        self.dependencies.as_array()
+    }
 
-// #[derive(Debug, Display, Error, EnumFrom)]
-// pub enum EndpointResponseError {
-//     ServiceError(ServiceError),
-//     StringConventError(StringConventError)
-// }
+    pub fn handle<C: ContextSupplier, S: AsRef<str>>(&self, context: C, args: S) {
+        self.init_handler.to_safe()(context, args)
+    }
 
-// impl TryFrom<EndpointResponse> for String {
-//     type Error = EndpointResponseError;
+    pub fn handler(&self) -> EventHandlerFuncUnsafeFP {
+        self.init_handler
+    }
 
-//     fn try_from(value: EndpointResponse) -> Result<Self, Self::Error> {
-//         let _:() = value.error.try_into()?;
-//         return Ok(value.response.as_str()?.to_owned());
-//     }
-// }
+    pub fn api_version(&self) -> CApiVersion {
+        self.api_version
+    }
+}
 
-// impl TryFrom<EndpointResponse> for Box<str> {
-//     type Error = EndpointResponseError;
+impl From<PluginInfo> for CPluginInfo {
+    fn from(value: PluginInfo) -> Self {
+        value.to_c()
+    }
+}
 
-//     fn try_from(value: EndpointResponse) -> Result<Self, Self::Error> {
-//         let _:() = value.error.try_into()?;
-//         return Ok(value.response.as_str()?.into());
-//     }
-// }
-
-// #[derive(Clone, Copy, Debug, Display, Error)]
-// pub struct InvalidFunctionPointerError;
-
-// pub struct ApplicationContext {
-
-// }
-
-// impl From<ApplicationContext> for CApplicationContext {
-//     fn from(value: ApplicationContext) -> Self {
-//         todo!()
-//     }
-// }
-
-// impl TryFrom<CApplicationContext> for ApplicationContext {
-//     type Error = InvalidFunctionPointerError;
-
-//     fn try_from(value: CApplicationContext) -> Result<Self, Self::Error> {
-//         todo!()
-//     }
-// }
-
-// mod fp_traits {
-//     use crate::cbindings::{ApplicationContext as CApplicationContext, CString};
-//     use crate::safe_api::{ApplicationContext};
-//     use crate::cbindings::ContextSupplier as CContextSupplier;
-
-//     pub trait ContextSupplierTrait {
-//         fn get_context() -> ApplicationContext;
-//     }
-
-//     unsafe extern "C" fn context_supplier_wrapper<C: ContextSupplierTrait>() -> CApplicationContext {
-//         C::get_context().into()
-//     }
-
-//     pub trait ContextSupplierFP: Fn() -> ApplicationContext {}
-
-//     impl<T> ContextSupplierFP for T where T: Fn() -> ApplicationContext {}
-
-//     pub trait EventHandlerTrait {
-//         fn handle(context: impl ContextSupplierFP, args: impl Into<Box<str>>);
-//     }
-
-//     unsafe extern "C" fn event_handler_fp_wrapper<E: EventHandlerTrait>(context_supplier: CContextSupplier, args: CString) {
-//         let supplier = || unsafe { context_supplier.expect("msg")().try_into().expect("msg")};
-//         E::handle(supplier, args.as_str().expect("Invalid Argument String"));
-//     }
-
-//     pub trait HandlerRegisterServiceTrait {
-
-//     }
-// }
+impl From<CPluginInfo> for Result<PluginInfo, ServiceError> {
+    fn from(value: CPluginInfo) -> Self {
+        value.to_rust()
+    }
+}

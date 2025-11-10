@@ -5,7 +5,9 @@ edition = "2024"
 
 [dependencies]
 serde_json = "1.0.145"
-finance-together-api = { path = "../api" }
+serde = { version = "1.0.226", features = ["derive"] }
+uuid = "1.18.1"
+finance-together-api = { path = "../api", features = ["safe"] }
 
 
 [lib]

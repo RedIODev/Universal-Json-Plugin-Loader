@@ -26,6 +26,21 @@ impl Parse for AttrArgs {
 }
 
 #[proc_macro_attribute]
+pub fn plugin_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let item  = parse_macro_input!(item as ItemFn);
+    let item_name = item.sig.ident.clone();
+    quote! {
+        use finance_together_api::c::{CUuid, CPluginInfo};
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn plugin_main(uuid: CUuid) -> CPluginInfo {
+            #item_name(uuid.into()).into()
+        }
+
+        #item
+    }.into()
+}
+
+#[proc_macro_attribute]
 pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attr = parse_macro_input!(attr as AttrArgs);
     let func = parse_macro_input!(item as ItemFn);
@@ -54,7 +69,7 @@ pub fn fn_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
         Ok(ok) => ok,
         Err(err) => err,
     };
-    println!("{}", x);
+    //println!("{}", x);
     x
 }
 

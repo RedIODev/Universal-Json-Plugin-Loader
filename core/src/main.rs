@@ -12,6 +12,7 @@ mod loader;
 mod runtime;
 mod util;
 mod config;
+//todo add debug print to all errors for more detail. add core:debug settings
 //refactor: remove anyhow when core is stable, remove mutex blocks and make functions return result for easy error throw, wrap unsafe api in safe api and use this in the core impl instead
 pub fn main() -> Result<()> {
     let gov_lifetime = GovernorLifetime::new()?;

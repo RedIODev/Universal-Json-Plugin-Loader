@@ -1,5 +1,4 @@
 
-use trait_fn::fn_trait;
 use uuid::Uuid;
 
 use crate::{
@@ -8,6 +7,8 @@ use crate::{
     },
     safe_api::{ApplicationContext, EndpointResponse, EventHandler, ServiceError},
 };
+
+pub use trait_fn::*;
 
 #[fn_trait]
 pub trait ContextSupplier {
@@ -309,12 +310,3 @@ pub trait EndpointRequestService {
         }
     }
 }
-
-// #[trait_fn(HandlerUnregisterService)]
-// pub fn HandlerUnregisterServiceImpl<S: AsRef<str>>(
-//     handler_id: Uuid,
-//     plugin_id: Uuid,
-//     event_name: S,
-// ) -> ServiceError {
-//     ServiceError::CoreInternalError
-// }

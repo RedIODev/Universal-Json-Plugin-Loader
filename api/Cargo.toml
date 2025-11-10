@@ -19,5 +19,6 @@ cc = "1.2.45"
 crate-type = ["staticlib", "lib"]
 
 [features]
-default = ["safe"]
+default = []
+unsafe = []
 safe = ["dep:uuid", "dep:trait_fn"]

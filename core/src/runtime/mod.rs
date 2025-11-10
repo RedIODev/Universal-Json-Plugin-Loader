@@ -12,14 +12,12 @@ use crate::{
 };
 use anyhow::Result;
 use atomic_enum::atomic_enum;
-use finance_together_api::safe_api::{ApplicationContext, pointer_traits::{ContextSupplier, EventTriggerService}};
+use finance_together_api::{ApplicationContext, pointer_traits::{ContextSupplier, EventTriggerService, trait_fn}};
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use threadpool::ThreadPool;
-use trait_fn::trait_fn;
 use uuid::Uuid;
-use clap::crate_version;
 
 #[atomic_enum]
 #[derive(Deserialize, Serialize, PartialEq)]
@@ -71,18 +69,8 @@ impl Runtime {
         EventTrigger::safe(
             core_id, 
             "core:init", 
-            json!({"version": crate_version!(), "plugins": plugins})
+            json!({"core_version": env!("CARGO_PKG_VERSION"), "plugins": plugins})
                     .to_string())?;
-        // unsafe {
-        //     event_trigger(
-        //         core_id,
-        //         "core:init".into(),
-        //         json!({"version": crate_version!(), "plugins": plugins})
-        //             .to_string()
-        //             .into(),
-        //     )
-        // }
-        // .result()?;
         Ok(())
     }
 
@@ -155,16 +143,3 @@ fn ContextSupplierImpl() -> ApplicationContext {
         EndpointUnregister,
         EndpointRequest>()
 }
-
-// unsafe extern "C" fn context_supplier() -> ApplicationContext {
-//     ApplicationContext {
-//         handlerRegisterService: Some(handler_register),
-//         HandlerUnregisterService: Some(handler_unregister),
-//         eventRegisterService: Some(event_register),
-//         eventUnregisterService: Some(event_unregister),
-//         eventTriggerService: Some(event_trigger),
-//         endpointRegisterService: Some(endpoint_register),
-//         endpointUnregisterService: Some(endpoint_unregister),
-//         endpointRequestService: Some(endpoint_request),
-//     }
-// }

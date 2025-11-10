@@ -1,13 +1,12 @@
 use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 use finance_together_api::{
-    safe_api::{EventHandler, ServiceError, misc::OkOrCoreInternalError, pointer_traits::{EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService}},
+    EventHandler, OkOrCoreInternalError, ServiceError, pointer_traits::{EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService, trait_fn}
 };
 use im::HashMap;
 use jsonschema::Validator;
 use serde_json::json;
 use topo_sort::TopoSort;
-use trait_fn::trait_fn;
 use uuid::Uuid;
 
 use crate::{
@@ -109,47 +108,6 @@ pub(super) fn EventHandlerRegister
     Ok(event_handler)
 }
 
-// pub(super) unsafe extern "C" fn handler_register(
-//     handler_fp: CEventHandlerFP,
-//     plugin_id: CUuid,
-//     event_name: CString,
-// ) -> CEventHandler {
-//     let Some(function) = handler_fp else {
-//         return CEventHandler::new_error(ServiceError::InvalidInput0);
-//     };
-//     let Ok(event_name) = event_name.as_str() else {
-//         return CEventHandler::new_error(ServiceError::InvalidInput2);
-//     };
-//     let handler = EventHandler {
-//         function,
-//         handler_id: CUuid::from_u64_pair(Uuid::new_v4().as_u64_pair()),
-//     };
-//     {
-//         // Mutex start
-//         let Ok(gov) = get_gov() else {
-//             return CEventHandler::new_error(ServiceError::CoreInternalError);
-//         };
-
-//         let new_handler = StoredEventHandler {
-//             handler: handler.clone(),
-//             plugin_id,
-//         };
-
-//         let result = gov.events().rcu_alter(event_name, |event| {
-//             event
-//                 .handlers
-//                 .insert(new_handler.clone())
-//                 .or_error(ServiceError::Duplicate)
-//         });
-
-//         if let Err(err) = result {
-//             return CEventHandler::new_error(err);
-//         }
-//     } // Mutex end
-
-//     handler.into()
-// }
-
 #[trait_fn(HandlerUnregisterService)] 
 pub(super) fn HandlerUnregister<S: AsRef<str>>(
         handler_id: Uuid,
@@ -171,38 +129,6 @@ pub(super) fn HandlerUnregister<S: AsRef<str>>(
 
     Ok(())
 }
-
-// pub(super) unsafe extern "C" fn handler_unregister(
-//     handler_id: CUuid,
-//     plugin_id: CUuid,
-//     event_name: CString,
-// ) -> ServiceError {
-//     let Ok(event_name) = event_name.as_str() else {
-//         return ServiceError::InvalidInput2;
-//     };
-//     {
-//         // Mutex start
-//         let Ok(gov) = get_gov() else {
-//             return ServiceError::CoreInternalError;
-//         };
-//         gov.events()
-//             .rcu_alter(event_name, |event| {
-//                 let handler = event
-//                     .handlers
-//                     .iter()
-//                     .find(|h| h.handler.handler_id == handler_id)
-//                     .ok_or(ServiceError::NotFound)?;
-
-//                 if handler.plugin_id != plugin_id {
-//                     return Err(ServiceError::Unauthorized);
-//                 }
-//                 event.handlers.remove(&handler.clone());
-//                 Ok(())
-//             })
-//             .err()
-//             .unwrap_or(ServiceError::Success)
-//     } // Mutex end
-// }
 
 #[trait_fn(EventRegisterService)]
 pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
@@ -242,63 +168,6 @@ pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
                 .to_string())
 }
 
-// pub(super) unsafe extern "C" fn event_register(
-//     argument_schema: CString,
-//     plugin_id: CUuid,
-//     event_name: CString,
-// ) -> ServiceError {
-//     let Ok(event_name) = event_name.as_str() else {
-//         return ServiceError::InvalidInput2;
-//     };
-//     let Ok(argument_schema) = argument_schema.as_str() else {
-//         return ServiceError::InvalidInput0;
-//     };
-//     let Ok(argument_schema_json) = serde_json::from_str(argument_schema) else {
-//         return ServiceError::InvalidInput0;
-//     };
-//     let Ok(validator) = jsonschema::validator_for(&argument_schema_json) else {
-//         return ServiceError::InvalidInput0;
-//     };
-//     let event = Event::new(validator, plugin_id);
-//     let full_name;
-//     let core_id = {
-//         // Mutex start
-//         let Ok(gov) = get_gov() else {
-//             return ServiceError::CoreInternalError;
-//         };
-//         let Some(plugin_name) = gov
-//             .loader()
-//             .plugins()
-//             .load()
-//             .get(&plugin_id)
-//             .map(|p| p.name.clone())
-//         else {
-//             return ServiceError::CoreInternalError;
-//         };
-//         let events = gov.events();
-//         if events.load().contains_key(event_name) {
-//             return ServiceError::Duplicate;
-//         }
-//         full_name = format!("{plugin_name}:{event_name}");
-
-//         events.rcu(|map| map.update(full_name.clone().into(), event.clone()));
-//         gov.runtime().core_id()
-//     }; // Mutex end
-//     unsafe {
-//         event_trigger(
-//             core_id,
-//             "core:event".into(),
-//             json!({
-//                     "event_name": full_name,
-//                     "argument_schema": argument_schema
-//                 })
-//                 .to_string()
-//                 .into(),
-//         )
-//     }; // locks mutex
-//     ServiceError::Success
-// }
-
 #[trait_fn(EventUnregisterService)] 
 pub(super) fn EventUnregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> Result<(), ServiceError> {
     {
@@ -315,31 +184,6 @@ pub(super) fn EventUnregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> 
 
     Ok(())
 }
-
-// pub(super) unsafe extern "C" fn event_unregister(
-//     plugin_id: CUuid,
-//     event_name: CString,
-// ) -> ServiceError {
-//     let Ok(event_name) = event_name.as_str() else {
-//         return ServiceError::InvalidInput1;
-//     };
-//     {
-//         // Mutex start
-//         let Ok(gov) = get_gov() else {
-//             return ServiceError::CoreInternalError;
-//         };
-//         let events = gov.events().load();
-//         let Some(event) = events.get(event_name) else {
-//             return ServiceError::NotFound;
-//         };
-//         if event.plugin_id != plugin_id {
-//             return ServiceError::Unauthorized;
-//         }
-
-//         gov.events().rcu(|events| events.without(event_name));
-//     } // Mutex end
-//     ServiceError::Success
-// }
 
 #[trait_fn(EventTriggerService)]
 pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
@@ -384,60 +228,6 @@ pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
     });
     Ok(())
 }
-
-// pub unsafe extern "C" fn event_trigger(
-//     plugin_id: CUuid,
-//     event_name: CString,
-//     arguments: CString,
-// ) -> ServiceError {
-//     let Ok(event_name) = event_name.as_str() else {
-//         return ServiceError::InvalidInput1;
-//     };
-//     let Ok(arguments) = arguments.as_str() else {
-//         return ServiceError::InvalidInput2;
-//     };
-//     {
-//         // Mutex start
-//         let Ok(gov) = get_gov() else {
-//             return ServiceError::CoreInternalError;
-//         };
-        
-//         match gov.runtime().check_power() {
-//             PowerState::Shutdown | PowerState::Restart => return ServiceError::ShutingDown,
-//             _ => {}
-//         }
-//         let events = gov.events().load();
-//         let Some(event) = events.get(event_name) else {
-//             return ServiceError::NotFound;
-//         };
-//         if event.plugin_id != plugin_id {
-//             return ServiceError::Unauthorized;
-//         }
-//         let Ok(json_arguments) = serde_json::from_str(arguments) else {
-//             return ServiceError::InvalidInput2;
-//         };
-//         if let Err(_) = event.argument_validator.validate(&json_arguments) {
-//             return ServiceError::InvalidInput2;
-//         }
-//         let funcs = if event_name != "core:init" {
-//             event.handlers.iter().map(|h| h.handler.function).collect()
-//         } else {
-//             let Some(funcs) = sort_handlers(event.handlers.iter(), &gov.loader().plugins().load())
-//             else {
-//                 return ServiceError::CoreInternalError;
-//             };
-//             funcs
-//         };
-//         let arguments = arguments.to_owned();
-//         gov.runtime().event_pool.execute(move || {
-//             for func in funcs {
-//                 unsafe { func(Some(context_supplier), arguments.clone().into()) } // might lock mutex
-//             }
-//         });
-//     }; // Mutex end
-
-//     ServiceError::Success
-// }
 
 fn sort_handlers<'a>(
     handlers: impl Iterator<Item = &'a StoredEventHandler>,

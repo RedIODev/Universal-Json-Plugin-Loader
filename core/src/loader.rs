@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use derive_more::Display;
-use finance_together_api::{cbindings::{CPluginInfo, CString, CUuid}, safe_api::{EventHandler, ServiceError}};
+use finance_together_api::{API_VERSION, EventHandler, ServiceError, cbindings::{CPluginInfo, CUuid}};
 use libloading::{Library, Symbol};
 
 use anyhow::Result;
@@ -40,16 +40,18 @@ impl Loader {
     pub unsafe fn load_library(filename: &str) -> Result<()> {
         let lib = unsafe { Library::new(filename)? };
         let main =
-            unsafe { lib.get::<Symbol<unsafe extern "C" fn(CUuid) -> CPluginInfo>>(b"pluginMain")? };
+            unsafe { lib.get::<Symbol<unsafe extern "C" fn(CUuid) -> CPluginInfo>>(b"plugin_main")? };
         let plugin_id = Uuid::new_v4();
         let plugin_info = unsafe { main(plugin_id.into()) };
+        if plugin_info.api_version != API_VERSION {
+            return Err(LoadError::ApiVersion.into())
+        }
         let dependencies = plugin_info
             .dependencies
             .as_array()?
-            .iter()
-            .map(CString::as_str)
-            .map(|str| str.map(Box::from))
-            .collect::<Result<_, _>>()?;
+            .into_iter()
+            .map(Box::from)
+            .collect();
         let plugin = Plugin {
             _lib: Arc::new(lib),
             name: plugin_info.name.as_str()?.into(),
@@ -116,4 +118,5 @@ enum LoadError {
     NullInit,
     Internal,
     DuplicateName,
+    ApiVersion
 }

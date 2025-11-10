@@ -21,12 +21,20 @@ typedef struct ApplicationContext {
 } ApplicationContext;
 
 typedef struct {
+    u16 major;
+    u8 feature;
+    u8 patch;
+} ApiVersion;
+
+typedef struct {
     String name;
     String version;
     List_String dependencies;
     EventHandlerFP init_handler;
+    ApiVersion api_version;
 } PluginInfo;
 
+extern const ApiVersion API_VERSION;
 NON_NULL EventHandlerFP pluginMain(Uuid);
 
 

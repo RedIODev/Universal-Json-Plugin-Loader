@@ -543,15 +543,32 @@ const _: () = {
 };
 #[repr(C)]
 #[derive(Debug)]
+pub struct CApiVersion {
+    pub major: Cu16,
+    pub feature: Cu8,
+    pub patch: Cu8,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of CApiVersion"][::std::mem::size_of::<CApiVersion>() - 4usize];
+    ["Alignment of CApiVersion"][::std::mem::align_of::<CApiVersion>() - 2usize];
+    ["Offset of field: CApiVersion::major"][::std::mem::offset_of!(CApiVersion, major) - 0usize];
+    ["Offset of field: CApiVersion::feature"]
+        [::std::mem::offset_of!(CApiVersion, feature) - 2usize];
+    ["Offset of field: CApiVersion::patch"][::std::mem::offset_of!(CApiVersion, patch) - 3usize];
+};
+#[repr(C)]
+#[derive(Debug)]
 pub struct CPluginInfo {
     pub name: CString,
     pub version: CString,
     pub dependencies: CList_String,
     pub init_handler: CEventHandlerFP,
+    pub api_version: CApiVersion,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of CPluginInfo"][::std::mem::size_of::<CPluginInfo>() - 80usize];
+    ["Size of CPluginInfo"][::std::mem::size_of::<CPluginInfo>() - 88usize];
     ["Alignment of CPluginInfo"][::std::mem::align_of::<CPluginInfo>() - 8usize];
     ["Offset of field: CPluginInfo::name"][::std::mem::offset_of!(CPluginInfo, name) - 0usize];
     ["Offset of field: CPluginInfo::version"]
@@ -560,7 +577,12 @@ const _: () = {
         [::std::mem::offset_of!(CPluginInfo, dependencies) - 48usize];
     ["Offset of field: CPluginInfo::init_handler"]
         [::std::mem::offset_of!(CPluginInfo, init_handler) - 72usize];
+    ["Offset of field: CPluginInfo::api_version"]
+        [::std::mem::offset_of!(CPluginInfo, api_version) - 80usize];
 };
+unsafe extern "C" {
+    pub static API_VERSION: CApiVersion;
+}
 unsafe extern "C" {
     pub fn pluginMain(arg1: CUuid) -> CEventHandlerFP;
 }
