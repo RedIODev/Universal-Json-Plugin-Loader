@@ -2,10 +2,9 @@
 use uuid::Uuid;
 
 use crate::{
-    cbindings::{
+    ErrorMapper, cbindings::{
         CApplicationContext, CContextSupplier, CEndpointResponse, CEventHandler, CEventHandlerFP, CServiceError, CString, CUuid
-    },
-    safe_api::{ApplicationContext, EndpointResponse, EventHandler, ServiceError},
+    }, safe_api::{ApplicationContext, EndpointResponse, EventHandler, ServiceError}
 };
 
 pub use trait_fn::*;
@@ -47,11 +46,13 @@ pub trait HandlerRegisterService {
         plugin_id: CUuid,
         event_name: CString,
     ) -> CEventHandler {
-        let Some(handler) = handler else {
-            return CEventHandler::new_error(CServiceError::InvalidInput0);
+        let handler = match handler.err_null_fp() {
+            Ok(handler) => handler,
+            Err(e) => return e.into()
         };
-        let Ok(event_name) = event_name.as_str() else {
-            return CEventHandler::new_error(CServiceError::InvalidInput2);
+        let event_name = match event_name.as_str().err_invalid_str() {
+            Ok(event_name) => event_name,
+            Err(e) => return e.into()
         };
         Self::safe(handler, plugin_id.into(), event_name).into()
     }
@@ -76,8 +77,9 @@ pub trait HandlerUnregisterService {
         plugin_id: CUuid,
         event_name: CString,
     ) -> CServiceError {
-        let Ok(event_name) = event_name.as_str() else {
-            return CServiceError::InvalidInput2;
+        let event_name = match event_name.as_str().err_invalid_str() {
+            Ok(event_name) => event_name,
+            Err(e) => return e.into()
         };
         Self::safe(handler_id.into(), plugin_id.into(), event_name).into()
     }
@@ -108,11 +110,13 @@ pub trait EventRegisterService {
         plugin_id: CUuid,
         event_name: CString,
     ) -> CServiceError {
-        let Ok(event_schema) = event_schema.as_str() else {
-            return CServiceError::InvalidInput0;
+        let event_schema = match event_schema.as_str().err_invalid_str() {
+            Ok(event_schema) => event_schema,
+            Err(e) => return e.into()
         };
-        let Ok(event_name) = event_name.as_str() else {
-            return CServiceError::InvalidInput2;
+        let event_name = match event_name.as_str().err_invalid_str() {
+            Ok(event_name) => event_name,
+            Err(e) => return e.into()
         };
         Self::safe(event_schema, plugin_id.into(), event_name).into()
     }
@@ -136,8 +140,9 @@ pub trait EventUnregisterService {
     fn safe<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> Result<(), ServiceError>;
 
     unsafe extern "C" fn adapter(plugin_id: CUuid, event_name: CString) -> CServiceError {
-        let Ok(event_name) = event_name.as_str() else {
-            return CServiceError::InvalidInput1;
+        let event_name = match event_name.as_str().err_invalid_str() {
+            Ok(event_name) => event_name,
+            Err(e) => return e.into()
         };
         Self::safe(plugin_id.into(), event_name).into()
     }
@@ -164,11 +169,13 @@ pub trait EventTriggerService {
         event_name: CString,
         args: CString,
     ) -> CServiceError {
-        let Ok(event_name) = event_name.as_str() else {
-            return CServiceError::InvalidInput1;
+        let event_name = match event_name.as_str().err_invalid_str() {
+            Ok(event_name) => event_name,
+            Err(e) => return e.into()
         };
-        let Ok(args) = args.as_str() else {
-            return CServiceError::InvalidInput2;
+        let args = match args.as_str().err_invalid_str() {
+            Ok(args) => args,
+            Err(e) => return e.into()
         };
         Self::safe(plugin_id.into(), event_name, args).into()
     }
@@ -195,11 +202,13 @@ pub trait RequestHandlerFunc {
         context_supplier: CContextSupplier,
         args: CString,
     ) -> CEndpointResponse {
-        let Ok(args) = args.as_str() else {
-            return CEndpointResponse::new_error(CServiceError::InvalidInput1);
+        let args = match args.as_str().err_invalid_str() {
+            Ok(args) => args,
+            Err(e) => return e.into()
         };
-        let Some(context) = context_supplier else {
-            return CEndpointResponse::new_error(CServiceError::InvalidInput0);
+        let context = match context_supplier.err_null_fp() {
+            Ok(context) => context,
+            Err(e) => return e.into()
         };
         let context = || context.to_safe()().expect("ApplicationContext must only contain valid fp!");
         Self::safe(context, args).into()
@@ -229,17 +238,21 @@ pub trait EndpointRegisterService {
         endpoint_name: CString,
         handler: Option<RequestHandlerFuncUnsafeFP>,
     ) -> CServiceError {
-        let Ok(args_schema) = args_schema.as_str() else {
-            return CServiceError::InvalidInput0;
+        let args_schema = match args_schema.as_str().err_invalid_str() {
+            Ok(args_schema) => args_schema,
+            Err(e) => return e.into()
         };
-        let Ok(response_schema) = response_schema.as_str() else {
-            return CServiceError::InvalidInput1;
+        let response_schema = match response_schema.as_str().err_invalid_str() {
+            Ok(response_schema) => response_schema,
+            Err(e) => return e.into()
         };
-        let Ok(endpoint_name) = endpoint_name.as_str() else {
-            return CServiceError::InvalidInput3;
+        let endpoint_name = match endpoint_name.as_str().err_invalid_str() {
+            Ok(endpoint_name) => endpoint_name,
+            Err(e) => return e.into()
         };
-        let Some(handler) = handler else {
-            return CServiceError::InvalidInput4;
+        let handler = match handler.err_null_fp() {
+            Ok(handler) => handler,
+            Err(e) => return e.into()
         };
         Self::safe(
             args_schema,
@@ -277,8 +290,9 @@ pub trait EndpointUnregisterService {
     fn safe<S: AsRef<str>>(plugin_id: Uuid, endpoint_name: S) -> Result<(), ServiceError>;
 
     unsafe extern "C" fn adapter(plugin_id: CUuid, endpoint_name: CString) -> CServiceError {
-        let Ok(endpoint_name) = endpoint_name.as_str() else {
-            return CServiceError::InvalidInput1
+        let endpoint_name = match endpoint_name.as_str().err_invalid_str() {
+            Ok(endpoint_name) => endpoint_name,
+            Err(e) => return e.into()
         };
         Self::safe(plugin_id.into(), endpoint_name).into()
     }
@@ -295,12 +309,15 @@ pub trait EndpointRequestService {
     fn safe<S: AsRef<str>, T: AsRef<str>>(endpoint_name: S, args: T) -> Result<EndpointResponse, ServiceError>;
 
     unsafe extern "C" fn adapter(endpoint_name: CString, args: CString) -> CEndpointResponse {
-        let Ok(endpoint_name) = endpoint_name.as_str() else {
-            return CEndpointResponse::new_error(CServiceError::InvalidInput0);
+        let endpoint_name = match endpoint_name.as_str().err_invalid_str() {
+            Ok(endpoint_name) => endpoint_name,
+            Err(e) => return e.into()
         };
-        let Ok(args) = args.as_str() else {
-            return CEndpointResponse::new_error(CServiceError::InvalidInput1);
+        let args = match args.as_str().err_invalid_str() {
+            Ok(args) => args,
+            Err(e) => return e.into()
         };
+
         Self::safe(endpoint_name, args).into()
     }
 

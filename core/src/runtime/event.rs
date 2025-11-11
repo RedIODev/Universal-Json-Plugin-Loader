@@ -1,7 +1,7 @@
 use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 use finance_together_api::{
-    EventHandler, OkOrCoreInternalError, ServiceError, pointer_traits::{EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService, trait_fn}
+    ErrorMapper, EventHandler, ServiceError, pointer_traits::{EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService, trait_fn}
 };
 use im::HashMap;
 use jsonschema::Validator;
@@ -101,7 +101,7 @@ pub(super) fn EventHandlerRegister
     let event_handler = EventHandler::new_unsafe(handler, Uuid::new_v4());
     let stored_handler = StoredEventHandler::new(event_handler, plugin_id);
 
-    get_gov().ok_or_core()?.events().rcu_alter(event_name.as_ref(), |event| {
+    get_gov().err_core()?.events().rcu_alter(event_name.as_ref(), |event| {
         event.handlers.insert(stored_handler.clone()).or_error(ServiceError::Duplicate)
     })?;
 
@@ -114,7 +114,7 @@ pub(super) fn HandlerUnregister<S: AsRef<str>>(
         plugin_id: Uuid,
         event_name: S,
     ) -> Result<(), ServiceError> {
-    get_gov().ok_or_core()?.events().rcu_alter(event_name.as_ref(), |event| {
+    get_gov().err_core()?.events().rcu_alter(event_name.as_ref(), |event| {
         let handler = event
                 .handlers
                 .iter()
@@ -137,18 +137,18 @@ pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
         event_name: T,
     ) -> Result<(), ServiceError> {
     let argument_schema_json = serde_json::from_str(argument_schema.as_ref())
-            .map_err(|_|ServiceError::InvalidInput0)?;
+            .err_invalid_json()?;
 
     let argument_validator = jsonschema::validator_for(&argument_schema_json)
-            .map_err(|_|ServiceError::InvalidInput0)?;
+            .err_invalid_schema()?;
     let event = Event::new(argument_validator, plugin_id);
     let full_name = {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let plugins = gov.loader().plugins().load();
         let plugin_name = plugins
             .get(&plugin_id)
             .map(|p| &*p.name)
-            .ok_or_core()?;
+            .err_not_found()?;
         if gov.events().load().contains_key(event_name.as_ref()) {
             return Err(ServiceError::Duplicate);
         }
@@ -157,7 +157,7 @@ pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
         full_name
     };
 
-    let core_id = get_gov().ok_or_core()?.runtime().core_id();
+    let core_id = get_gov().err_core()?.runtime().core_id();
 
     EventTrigger::safe(core_id, 
         "core:event", 
@@ -171,7 +171,7 @@ pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
 #[trait_fn(EventUnregisterService)] 
 pub(super) fn EventUnregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> Result<(), ServiceError> {
     {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let events = gov.events().load();
         let event = events.get(event_name.as_ref())
                 .ok_or(ServiceError::NotFound)?;
@@ -191,15 +191,15 @@ pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
         event_name: S,
         args: T,
     ) -> Result<(), ServiceError> {
-    match get_gov().ok_or_core()?.runtime().check_power() {
+    match get_gov().err_core()?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
         _ => {}
     }
 
     let event_arguments_json = serde_json::from_str(args.as_ref())
-            .map_err(|_| ServiceError::InvalidInput2)?;
+            .err_invalid_json()?;
     let funcs = {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let events = gov.events().load();
         let event = events.get(event_name.as_ref())
                 .ok_or(ServiceError::NotFound)?;
@@ -208,7 +208,7 @@ pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
         }
 
         event.argument_validator.validate(&event_arguments_json)
-                .map_err(|_| ServiceError::InvalidInput2)?;
+                .err_invalid_api()?;
         if event_name.as_ref() != "core:init" {
             event.handlers.iter().map(|h| h.handler.handler()).collect()
         } else {
@@ -219,7 +219,7 @@ pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
             funcs
         }
     };
-    let executor = get_gov().ok_or_core()?.runtime().event_pool.clone();
+    let executor = get_gov().err_core()?.runtime().event_pool.clone();
     let owned_args = args.as_ref().to_string();
     executor.execute(move || {
         for func in funcs {

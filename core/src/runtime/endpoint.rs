@@ -1,7 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
-use finance_together_api::{ApplicationContext, EndpointResponse, OkOrCoreInternalError, ServiceError, pointer_traits::{EndpointRegisterService, EndpointRequestService, EndpointUnregisterService, EventTriggerService, RequestHandlerFunc, RequestHandlerFuncToSafe, RequestHandlerFuncUnsafeFP, trait_fn}};
+use finance_together_api::{
+    ApplicationContext, EndpointResponse, ErrorMapper, ServiceError, pointer_traits::{
+        EndpointRegisterService, EndpointRequestService, EndpointUnregisterService,
+        EventTriggerService, RequestHandlerFunc, RequestHandlerFuncToSafe,
+        RequestHandlerFuncUnsafeFP, trait_fn,
+    }
+};
 use im::HashMap;
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
@@ -11,7 +17,8 @@ use uuid::Uuid;
 
 use crate::{
     governor::get_gov,
-    runtime::{ContextSupplierImpl, EventTrigger, PowerState, schema_from_file}, util::LockedMap,
+    runtime::{ContextSupplierImpl, EventTrigger, PowerState, schema_from_file},
+    util::LockedMap,
 };
 
 pub type Endpoints = LockedMap<Box<str>, Endpoint>;
@@ -60,7 +67,7 @@ enum PowerCommand {
     Shutdown,
     Restart,
     Cancel,
-    State
+    State,
 }
 
 #[derive(Deserialize)]
@@ -69,35 +76,36 @@ struct PowerArgs {
     delay: Option<u32>,
 }
 
-
 #[trait_fn(RequestHandlerFunc)]
-pub fn CorePowerHandler
-<F: Fn() -> ApplicationContext, S: AsRef<str>>
-(context_supplier:F, args: S) -> Result<EndpointResponse, ServiceError> {
+pub fn CorePowerHandler<F: Fn() -> ApplicationContext, S: AsRef<str>>(
+    context_supplier: F,
+    args: S,
+) -> Result<EndpointResponse, ServiceError> {
     let args = serde_json::from_str::<PowerArgs>(args.as_ref())
-            .map_err(|_| ServiceError::InvalidInput0)?;
-    match get_gov().ok_or_core()?.runtime().check_power() {
+        .err_invalid_json()?;
+    match get_gov().err_core()?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
-            _ => {}
+        _ => {}
     }
-    let core_id = get_gov().ok_or_core()?.runtime().core_id();
+    let core_id = get_gov().err_core()?.runtime().core_id();
     let context = context_supplier();
     let utc_now = Utc::now();
     let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
     context.trigger_event(
-        core_id, 
-        "core:power",  
+        core_id,
+        "core:power",
         json!({
                 "command": args.command,
                 "timestamp": timestamp
-        }).to_string()
+        })
+        .to_string(),
     )?;
 
     if let Some(delay) = args.delay {
         std::thread::sleep(Duration::from_millis(delay as u64));
     }
 
-    if let PowerState::Cancel = get_gov().ok_or_core()?.runtime().check_and_reset_power() {
+    if let PowerState::Cancel = get_gov().err_core()?.runtime().check_and_reset_power() {
         return Ok(EndpointResponse::new(json!({"canceled": true}).to_string()));
     }
 
@@ -106,106 +114,120 @@ pub fn CorePowerHandler
         PowerCommand::Restart => PowerState::Restart,
         PowerCommand::Cancel => PowerState::Cancel,
         PowerCommand::State => {
-            let power = get_gov().ok_or_core()?.runtime().check_power();
+            let power = get_gov().err_core()?.runtime().check_power();
             return Ok(EndpointResponse::new(json!({"state": power}).to_string()));
-        },
+        }
     };
 
-    get_gov().ok_or_core()?.runtime().set_power(power_state);
+    get_gov().err_core()?.runtime().set_power(power_state);
     Ok(EndpointResponse::new(json!({}).to_string()))
 }
 
 #[trait_fn(EndpointRegisterService)]
-pub(super) fn EndpointRegister
-<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
+pub(super) fn EndpointRegister<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     args_schema: S,
     response_schema: T,
     plugin_id: Uuid,
     endpoint_name: Q,
-    handler: RequestHandlerFuncUnsafeFP) -> Result<(), ServiceError> {
-    let argument_schema_json = serde_json::from_str(args_schema.as_ref())
-        .map_err(|_| ServiceError::InvalidInput0)?;
+    handler: RequestHandlerFuncUnsafeFP,
+) -> Result<(), ServiceError> {
+    let argument_schema_json =
+        serde_json::from_str(args_schema.as_ref()).err_invalid_json()?;
     let argument_validator = jsonschema::validator_for(&argument_schema_json)
-        .map_err(|_| ServiceError::InvalidInput0)?;
-      let response_schema_json = serde_json::from_str(response_schema.as_ref())
-        .map_err(|_| ServiceError::InvalidInput1)?;
+        .err_invalid_schema()?;
+    let response_schema_json =
+        serde_json::from_str(response_schema.as_ref()).err_invalid_json()?;
     let response_validator = jsonschema::validator_for(&response_schema_json)
-        .map_err(|_| ServiceError::InvalidInput1)?;  
-    let endpoint = Endpoint::new(
-        handler, 
-        argument_validator, 
-        response_validator, 
-        plugin_id);
+        .err_invalid_schema()?;
+    let endpoint = Endpoint::new(handler, argument_validator, response_validator, plugin_id);
     let full_name = {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let plugins = gov.loader().plugins().load();
-        let plugin_name = plugins
-            .get(&plugin_id)
-            .map(|p| &*p.name)
-            .ok_or_core()?;
+        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).err_not_found()?;
         if gov.endpoints().load().contains_key(endpoint_name.as_ref()) {
             return Err(ServiceError::Duplicate);
         }
         let full_name = format!("{}:{}", plugin_name, endpoint_name.as_ref());
-        gov.endpoints().rcu(
-            |map| map.update(full_name.clone().into(), endpoint.clone()));
+        gov.endpoints()
+            .rcu(|map| map.update(full_name.clone().into(), endpoint.clone()));
         full_name
     };
 
-
-    let core_id = get_gov().ok_or_core()?.runtime().core_id();
-    EventTrigger::safe(core_id, "core:endpoint", json!({
-                "endpoint_name": full_name,
-                "argument_schema": argument_schema_json,
-                "response_schema": response_schema_json
-            })
-            .to_string())?;
+    let core_id = get_gov().err_core()?.runtime().core_id();
+    EventTrigger::safe(
+        core_id,
+        "core:endpoint",
+        json!({
+            "endpoint_name": full_name,
+            "argument_schema": argument_schema_json,
+            "response_schema": response_schema_json
+        })
+        .to_string(),
+    )?;
     Ok(())
 }
 
 #[trait_fn(EndpointUnregisterService)]
-pub(super) fn EndpointUnregister<S: AsRef<str>>(plugin_id: Uuid, endpoint_name: S) -> Result<(), ServiceError> {
+pub(super) fn EndpointUnregister<S: AsRef<str>>(
+    plugin_id: Uuid,
+    endpoint_name: S,
+) -> Result<(), ServiceError> {
     {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let endpoints = gov.endpoints().load();
-        let endpoint = endpoints.get(endpoint_name.as_ref())
-                .ok_or(ServiceError::NotFound)?;
+        let endpoint = endpoints
+            .get(endpoint_name.as_ref())
+            .ok_or(ServiceError::NotFound)?;
         if endpoint.plugin_id != plugin_id {
             return Err(ServiceError::Unauthorized);
         }
 
-        gov.endpoints().rcu(|map| map.without(endpoint_name.as_ref()));
+        gov.endpoints()
+            .rcu(|map| map.without(endpoint_name.as_ref()));
     }
 
     Ok(())
 }
 
-#[trait_fn(EndpointRequestService)] 
-pub(super) fn EndpointRequest<S: AsRef<str>, T: AsRef<str>>(endpoint_name: S, args: T) -> Result<EndpointResponse, ServiceError> {
-    let arguments_json = serde_json::from_str(args.as_ref())
-            .map_err(|_| ServiceError::InvalidInput1)?;
+#[trait_fn(EndpointRequestService)]
+pub(super) fn EndpointRequest<S: AsRef<str>, T: AsRef<str>>(
+    endpoint_name: S,
+    args: T,
+) -> Result<EndpointResponse, ServiceError> {
+    let arguments_json =
+        serde_json::from_str(args.as_ref()).err_invalid_json()?;
     let handler = {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let endpoints = gov.endpoints().load();
-        let endpoint = endpoints.get(endpoint_name.as_ref())
+        let endpoint = endpoints
+            .get(endpoint_name.as_ref())
             .ok_or(ServiceError::NotFound)?;
-        endpoint.argument_validator.validate(&arguments_json)
-                .map_err(|_| ServiceError::InvalidInput1)?;
+        endpoint
+            .argument_validator
+            .validate(&arguments_json)
+            .err_invalid_api()?;
         endpoint.request_handler.to_safe()
     };
 
-    let response = handler(ContextSupplierImpl , args)?; 
+    let response = handler(ContextSupplierImpl, args)?;
 
-    let response_json = serde_json::from_str(response.response()
-                .map_err(|_| ServiceError::InvalidResponse)?)
-            .map_err(|_| ServiceError::InvalidResponse)?;
-    
+    let response_json = serde_json::from_str(
+        response
+            .response()
+            .err_invalid_str()?,
+    )
+    .err_invalid_json()?;
+
     {
-        let gov = get_gov().ok_or_core()?;
+        let gov = get_gov().err_core()?;
         let endpoints = gov.endpoints().load();
-        let endpoint = endpoints.get(endpoint_name.as_ref()).ok_or(ServiceError::NotFound)?;
-        endpoint.response_validator.validate(&response_json)
-            .map_err(|_| ServiceError::InvalidResponse)?;
+        let endpoint = endpoints
+            .get(endpoint_name.as_ref())
+            .ok_or(ServiceError::NotFound)?;
+        endpoint
+            .response_validator
+            .validate(&response_json)
+            .err_invalid_api()?;
     }
     Ok(response)
 }
