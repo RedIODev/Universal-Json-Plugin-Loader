@@ -5,7 +5,7 @@
 
     "properties": {
         "command": {
-            "enum": ["shutdown", "restart", "cancel", "state"]
+            "enum": ["shutdown", "restart", "cancel"]
         },
         "delay": {
             "type": "integer",

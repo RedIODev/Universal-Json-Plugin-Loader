@@ -6,9 +6,6 @@
     "properties": {
         "canceled": {
             "type": "boolean"
-        },
-        "state": {
-            "enum": ["running", "shutdown", "restart", "cancel"]
         }
     },
     "required": []

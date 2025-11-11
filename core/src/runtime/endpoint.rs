@@ -67,7 +67,6 @@ enum PowerCommand {
     Shutdown,
     Restart,
     Cancel,
-    State,
 }
 
 #[derive(Deserialize)]
@@ -91,7 +90,19 @@ pub fn CorePowerHandler<F: Fn() -> ApplicationContext, S: AsRef<str>>(
     let context = context_supplier();
     let utc_now = Utc::now();
     let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
-    context.trigger_event(
+    if let Some(delay) = args.delay {
+        context.trigger_event(
+        core_id,
+        "core:power",
+        json!({
+                "command": args.command,
+                "timestamp": timestamp,
+                "delay": delay
+        })
+        .to_string(),
+    )?;
+    } else {
+        context.trigger_event(
         core_id,
         "core:power",
         json!({
@@ -100,6 +111,8 @@ pub fn CorePowerHandler<F: Fn() -> ApplicationContext, S: AsRef<str>>(
         })
         .to_string(),
     )?;
+    }
+    
 
     if let Some(delay) = args.delay {
         std::thread::sleep(Duration::from_millis(delay as u64));
@@ -113,10 +126,6 @@ pub fn CorePowerHandler<F: Fn() -> ApplicationContext, S: AsRef<str>>(
         PowerCommand::Shutdown => PowerState::Shutdown,
         PowerCommand::Restart => PowerState::Restart,
         PowerCommand::Cancel => PowerState::Cancel,
-        PowerCommand::State => {
-            let power = get_gov().err_core()?.runtime().check_power();
-            return Ok(EndpointResponse::new(json!({"state": power}).to_string()));
-        }
     };
 
     get_gov().err_core()?.runtime().set_power(power_state);
@@ -208,7 +217,6 @@ pub(super) fn EndpointRequest<S: AsRef<str>, T: AsRef<str>>(
             .err_invalid_api()?;
         endpoint.request_handler.to_safe()
     };
-
     let response = handler(ContextSupplierImpl, args)?;
 
     let response_json = serde_json::from_str(

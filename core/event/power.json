@@ -9,6 +9,9 @@
         },
         "timestamp": {
             "type": "string"
+        },
+        "delay": {
+            "type": "number"
         }
     },
     "required": ["command", "timestamp"]

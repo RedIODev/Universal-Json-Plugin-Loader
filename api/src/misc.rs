@@ -143,9 +143,13 @@ impl Clone for CApiVersion {
 
 impl Copy for CApiVersion {}
 
+///
+/// Two apis with same major and feature versions are always considered equal.
+/// Patch version is purposefully ignored as it never contains any braking changes that would cause a runtime incompatibility.
+/// 
 impl PartialEq for CApiVersion {
     fn eq(&self, other: &Self) -> bool {
-        self.major == other.major && self.feature == other.feature && self.patch == other.patch
+        self.major == other.major && self.feature == other.feature
     }
 }
 
@@ -172,6 +176,7 @@ impl CApiVersion {
         while index < bytes.len() {
             if bytes[index] == b'.' {
                 feature = to_u8(bytes, start, index);
+                break;
             }
 
             index += 1;
