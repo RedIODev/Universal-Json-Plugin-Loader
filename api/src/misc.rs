@@ -1,9 +1,13 @@
-use std::{str::Utf8Error};
+use std::str::Utf8Error;
 
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::{cbindings::{CApiVersion, CEndpointResponse, CEventHandler, CList_String, CServiceError, CString, CUuid, createListString, createString, destroyListString, destroyString, emptyListString, getLengthString, getViewString, isValidListString, isValidString}};
+use crate::cbindings::{
+    CApiVersion, CEndpointResponse, CEventHandler, CList_String, CServiceError, CString, CUuid,
+    createListString, createString, destroyListString, destroyString, emptyListString,
+    getLengthString, getViewString, isValidListString, isValidString,
+};
 
 #[cfg(feature = "safe")]
 impl From<CUuid> for uuid::Uuid {
@@ -16,7 +20,7 @@ impl From<CUuid> for uuid::Uuid {
 impl From<uuid::Uuid> for CUuid {
     fn from(value: uuid::Uuid) -> Self {
         let (higher, lower) = value.as_u64_pair();
-        Self { higher , lower }
+        Self { higher, lower }
     }
 }
 
@@ -26,16 +30,10 @@ impl Drop for CString {
     }
 }
 
-#[derive(Error, Display, Debug)]
-pub enum StringConventError {
-    InvalidString,
-    Utf8(#[from] Utf8Error),
-}
-
 impl CString {
-    pub fn as_str(&self) -> Result<&str, StringConventError> {
+    pub fn as_str(&self) -> Result<&str, ApiMiscError> {
         if unsafe { !isValidString(self) } {
-            return Err(StringConventError::InvalidString);
+            return Err(ApiMiscError::InvalidString);
         }
         let len = unsafe { getLengthString(self) };
         let ptr = unsafe { getViewString(self, 0, len) };
@@ -69,7 +67,10 @@ impl CEventHandler {
     pub fn new_error(error: CServiceError) -> Self {
         Self {
             function: None,
-            handler_id: CUuid { higher: 0, lower: 0},
+            handler_id: CUuid {
+                higher: 0,
+                lower: 0,
+            },
             error,
         }
     }
@@ -84,9 +85,6 @@ impl CEndpointResponse {
     }
 }
 
-
-
-
 impl Drop for CList_String {
     fn drop(&mut self) {
         unsafe { destroyListString(self) };
@@ -94,18 +92,20 @@ impl Drop for CList_String {
 }
 
 impl CList_String {
-    pub fn as_array(&self) -> Result<Vec<&str>, StringListError> {
+    pub fn as_array(&self) -> Result<Vec<&str>, ApiMiscError> {
         if unsafe { !isValidListString(self) } {
-            return Err(StringListError::InvalidList);
+            return Err(ApiMiscError::InvalidList);
         }
         if self.data.is_null() {
             return Ok(Vec::new());
         }
         let slice = unsafe { std::slice::from_raw_parts(self.data, self.length as usize) };
-        Ok(slice.iter().map(CString::as_str).collect::<Result<_, _>>()?)
+        slice
+            .iter()
+            .map(CString::as_str)
+            .collect::<Result<_, _>>()
     }
 }
-
 
 impl<T> From<T> for CList_String
 where
@@ -113,8 +113,8 @@ where
 {
     fn from(value: T) -> Self {
         let boxed_list: Box<[_]> = value.into();
-        if boxed_list.len() == 0 {
-            return unsafe { emptyListString() }
+        if boxed_list.is_empty() {
+            return unsafe { emptyListString() };
         }
         let leaked = unsafe { &mut *Box::into_raw(boxed_list) };
         let ptr = leaked.as_mut_ptr();
@@ -129,11 +129,7 @@ unsafe extern "C" fn drop_list_string(list: *mut CString, length: u32) {
     drop(owned);
 }
 
-#[derive(Error, Display, Debug)]
-pub enum StringListError {
-    InvalidList,
-    StringConventError(#[from]StringConventError)
-}
+
 
 impl Clone for CApiVersion {
     fn clone(&self) -> Self {
@@ -146,7 +142,7 @@ impl Copy for CApiVersion {}
 ///
 /// Two apis with same major and feature versions are always considered equal.
 /// Patch version is purposefully ignored as it never contains any braking changes that would cause a runtime incompatibility.
-/// 
+///
 impl PartialEq for CApiVersion {
     fn eq(&self, other: &Self) -> bool {
         self.major == other.major && self.feature == other.feature
@@ -155,7 +151,11 @@ impl PartialEq for CApiVersion {
 
 impl CApiVersion {
     pub const fn new(major: u16, feature: u8, patch: u8) -> Self {
-        Self { major, feature, patch }
+        Self {
+            major,
+            feature,
+            patch,
+        }
     }
 
     pub const fn cargo() -> Self {
@@ -181,10 +181,13 @@ impl CApiVersion {
 
             index += 1;
         }
-        index+=1;
+        index += 1;
         let patch = to_u8(bytes, index, bytes.len());
-        Self { major, feature, patch }
-
+        Self {
+            major,
+            feature,
+            patch,
+        }
     }
 }
 
@@ -193,7 +196,7 @@ const fn to_u8(bytes: &[u8], start: usize, end: usize) -> u8 {
     let mut i = start;
     while i < end {
         res = 10u8 * res + (bytes[i] - b'0');
-        i+=1;
+        i += 1;
     }
     res
 }
@@ -203,8 +206,14 @@ const fn to_u16(bytes: &[u8], start: usize, end: usize) -> u16 {
     let mut i = start;
     while i < end {
         res = 10u16 * res + (bytes[i] - b'0') as u16;
-        i+=1;
+        i += 1;
     }
     res
 }
 
+#[derive(Error, Display, Debug)]
+pub enum ApiMiscError {
+    InvalidList,
+    InvalidString,
+    Utf8(#[from] Utf8Error),
+}

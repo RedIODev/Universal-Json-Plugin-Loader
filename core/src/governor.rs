@@ -5,7 +5,6 @@ use crate::{
         Runtime, endpoint::{Endpoint, Endpoints, register_core_endpoints}, event::{Event, Events, register_core_events}
     }, util::{GuardExt, LockedMap, MappedGuard}
 };
-use anyhow::Result;
 use arc_swap::ArcSwap;
 use clap::Parser;
 use derive_more::Display;
@@ -27,8 +26,7 @@ pub fn get_gov() -> Result<GovernorReadGuard, GovernorError> {
         .try_map(|g| g.as_ref().map(Arc::clone).ok_or(GovernorError))
 }
 
-#[derive(Error, Debug, Display, Clone)]
-pub(crate) struct GovernorError;
+
 
 ///
 /// Should only be created in main of this binary once.
@@ -36,9 +34,9 @@ pub(crate) struct GovernorError;
 pub(super) struct GovernorLifetime(PhantomData<()>);
 
 impl GovernorLifetime {
-    pub(super) fn new() -> Result<Self> {
-        GOV.rcu(|_| Some(Arc::new(Governor::new())));
-        Ok(Self(PhantomData))
+    pub(super) fn new() -> Self {
+        GOV.rcu(|_| Some(Arc::default()));
+        Self(PhantomData)
     }
 }
 
@@ -48,21 +46,24 @@ impl Drop for GovernorLifetime {
     }
 }
 
-impl Governor {
-    pub fn new() -> Self {
-        let runtime = Runtime::new();
+impl Default for Governor {
+    fn default() -> Self {
+        let runtime = Runtime::default();
         let gov = Self {
-            loader: Loader::new(),
+            loader: Loader::default(),
             events: ArcSwap::default(),
             endpoints: ArcSwap::default(),
             runtime,
-            config: Config::new(),
+            config: Config::default(),
             cli: LazyLock::new(|| CliParser::parse().into())
         };
         register_core_endpoints(gov.endpoints(), gov.runtime().core_id());
         register_core_events(gov.events(), gov.runtime().core_id());
-        gov
+        gov 
     }
+}
+
+impl Governor {
 
     pub fn events(&self) -> &Events {
         &self.events
@@ -88,3 +89,6 @@ impl Governor {
         &self.cli
     }
 }
+
+#[derive(Error, Debug, Display, Clone)]
+pub struct GovernorError;

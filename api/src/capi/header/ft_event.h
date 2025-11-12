@@ -12,7 +12,8 @@ typedef void (*EventHandlerFP)(NON_NULL ContextSupplier, String);
 // Handler struct that carries the success state and the generated handler_id with it.
 // The handler_id is required to unregister the handler later.
 // All fields values are undefined unless the error field == SERVICE_SUCCESS.
-typedef struct {
+typedef struct
+{
     NON_NULL EventHandlerFP function;
     Uuid handler_id;
     ServiceError error;
@@ -23,14 +24,14 @@ typedef struct {
 // The second   argument has to be the plugins uuid.
 // The third    argument is the events name to register the handler to. The name follows the format "<plugin-name>:<event-name>"
 // Returns the success state of the registration.
-typedef EventHandler (*HandlerRegisterService)(NON_NULL EventHandlerFP, Uuid, String);
+typedef EventHandler (*EventHandlerRegisterService)(NON_NULL EventHandlerFP, Uuid, String);
 
 // Service function to unregister a handler for a given event.
 // The first    argument is the handlerId to be removed.
 // The second   argument has to be the plugins uuid.
 // The third    argument is the events name to remove the handler from. The name follows the format "<plugin-name>:<event-name>"
 // Returns the success state of the unregistration.
-typedef ServiceError (*HandlerUnregisterService)(Uuid, Uuid, String);
+typedef ServiceError (*EventHandlerUnregisterService)(Uuid, Uuid, String);
 
 // Service function to register a new event.
 // The first    argument is the json schema the events arguments have to satisfy.
@@ -53,6 +54,5 @@ typedef ServiceError (*EventUnregisterService)(Uuid, String);
 // The third    argument is the events arguments.
 // Returns the success state of the trigger.
 typedef ServiceError (*EventTriggerService)(Uuid, String, String);
-
 
 #endif

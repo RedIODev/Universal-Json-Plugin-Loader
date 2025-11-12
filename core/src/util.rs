@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
 use finance_together_api::ServiceError;
@@ -17,9 +17,9 @@ pub trait ArcMapExt<K, V> {
     where
         F: Fn(&mut V) -> Result<(), ServiceError>;
 
-    fn try_rcu<F>(&self, f: F) -> Result<(), Self::Error>
-    where
-        F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>;
+    // fn try_rcu<F>(&self, f: F) -> Result<(), Self::Error>
+    // where
+    //     F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>;
 }
 
 impl<K, V> ArcMapExt<K, V> for ArcSwap<HashMap<K, V>>
@@ -42,7 +42,7 @@ where
                     if let Err(err) = f(&mut value) {
                         error = Err(err);
                     }
-                    return Some(value);
+                    Some(value)
                 },
                 key.clone().into(),
             )
@@ -53,20 +53,20 @@ where
     type Inner = HashMap<K, V>;
     type Error = ServiceError;
 
-    fn try_rcu<F>(&self, f: F) -> Result<(), Self::Error>
-    where
-        F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>,
-    {
-        let mut error = Result::Ok(());
-        self.rcu(|map_inner| match f(map_inner) {
-            Ok(map) => map,
-            Err(err) => {
-                error = Err(err);
-                (**map_inner).clone()
-            }
-        });
-        error
-    }
+    // fn try_rcu<F>(&self, f: F) -> Result<(), Self::Error>
+    // where
+    //     F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>,
+    // {
+    //     let mut error = Result::Ok(());
+    //     self.rcu(|map_inner| match f(map_inner) {
+    //         Ok(map) => map,
+    //         Err(err) => {
+    //             error = Err(err);
+    //             (**map_inner).clone()
+    //         }
+    //     });
+    //     error
+    // }
 }
 
 pub trait TrueOrErr {
@@ -157,9 +157,9 @@ pub trait GuardExt<T>: Sized
 where
     T: RefCnt,
 {
-    fn map<U, F>(self, f: F) -> MappedGuard<T, U>
-    where
-        F: FnOnce(&T) -> U;
+    // fn map<U, F>(self, f: F) -> MappedGuard<T, U>
+    // where
+    //     F: FnOnce(&T) -> U;
 
     fn try_map<U, F, E>(self, f: F) -> Result<MappedGuard<T, U>, E>
     where
@@ -170,12 +170,12 @@ impl<T> GuardExt<T> for Guard<T>
 where
     T: RefCnt,
 {
-    fn map<U, F>(self, f: F) -> MappedGuard<T, U>
-    where
-        F: FnOnce(&T) -> U,
-    {
-        MappedGuard::new(self, |g| MappedGuardInner { mapped: f(g) })
-    }
+    // fn map<U, F>(self, f: F) -> MappedGuard<T, U>
+    // where
+    //     F: FnOnce(&T) -> U,
+    // {
+    //     MappedGuard::new(self, |g| MappedGuardInner { mapped: f(g) })
+    // }
 
     fn try_map<U, F, E>(self, f: F) -> Result<MappedGuard<T, U>, E>
     where

@@ -1,5 +1,10 @@
 use std::{
-    borrow::Cow, error::Error, io::{Write, stdin, stdout}, sync::{Arc, atomic::Ordering}, thread, time::Duration
+    borrow::Cow,
+    error::Error,
+    io::{Write, stdin, stdout},
+    sync::{Arc, atomic::Ordering},
+    thread,
+    time::Duration,
 };
 
 use arc_swap::ArcSwapOption;
@@ -31,7 +36,7 @@ struct PowWrap {
 }
 
 #[plugin_main]
-fn main(uuid: Uuid) -> PluginInfo { 
+fn main(uuid: Uuid) -> PluginInfo {
     println!("Main: Test from plugin! {:?}", uuid);
     UUID.store(Some(Arc::new(uuid)));
     PluginInfo::new::<InitTest, _, _, _>("ExamplePlugin", "0.0.2", [], API_VERSION)
@@ -41,7 +46,7 @@ static POWER: AtomicMyPow = AtomicMyPow::new(MyPow::None);
 static UUID: ArcSwapOption<Uuid> = ArcSwapOption::const_empty();
 
 #[trait_fn(EventHandlerFunc for PowerListener)]
-fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
+fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
     if let Err(e) = power_listener(context, args) {
         println!("Error: {}", e);
     }
@@ -60,7 +65,7 @@ fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, ar
 }
 
 #[trait_fn(EventHandlerFunc for InitTest)]
-fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
+fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
     if let Err(e) = init_test(context, args) {
         println!("Error: {}", e);
     }
@@ -69,7 +74,7 @@ fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, ar
         args: S,
     ) -> Result<(), Box<dyn Error>> {
         println!("Plugin: Init: Test from plugin! Args:{}", args.into());
-        let uuid = (**UUID.load().as_ref().ok_or("Uuid None")?).clone();
+        let uuid = **UUID.load().as_ref().ok_or("Uuid None")?;
         context().register_event_handler(PowerListener, uuid, "core:power")?;
         println!("before while loop with {:?}", POWER.load(Ordering::Relaxed));
         while POWER.load(Ordering::Relaxed) < MyPow::Shutdown {

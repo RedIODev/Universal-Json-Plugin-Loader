@@ -2,11 +2,12 @@ use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
 use finance_together_api::{
-    ApplicationContext, EndpointResponse, ErrorMapper, ServiceError, pointer_traits::{
+    ApplicationContext, EndpointResponse, ErrorMapper, ServiceError,
+    pointer_traits::{
         EndpointRegisterService, EndpointRequestService, EndpointUnregisterService,
         EventTriggerService, RequestHandlerFunc, RequestHandlerFuncFPAdapter,
         RequestHandlerFuncUnsafeFP, trait_fn,
-    }
+    },
 };
 use im::HashMap;
 use jsonschema::Validator;
@@ -76,12 +77,11 @@ struct PowerArgs {
 }
 
 #[trait_fn(RequestHandlerFunc for CorePowerHandler)]
-pub fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
+pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     context_supplier: F,
     args: S,
 ) -> Result<EndpointResponse, ServiceError> {
-    let args = serde_json::from_str::<PowerArgs>(&args.into())
-        .err_invalid_json()?;
+    let args = serde_json::from_str::<PowerArgs>(&args.into()).err_invalid_json()?;
     match get_gov().err_core()?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
         _ => {}
@@ -92,27 +92,26 @@ pub fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
     if let Some(delay) = args.delay {
         context.trigger_event(
-        core_id,
-        "core:power",
-        json!({
-                "command": args.command,
-                "timestamp": timestamp,
-                "delay": delay
-        })
-        .to_string(),
-    )?;
+            core_id,
+            "core:power",
+            json!({
+                    "command": args.command,
+                    "timestamp": timestamp,
+                    "delay": delay
+            })
+            .to_string(),
+        )?;
     } else {
         context.trigger_event(
-        core_id,
-        "core:power",
-        json!({
-                "command": args.command,
-                "timestamp": timestamp
-        })
-        .to_string(),
-    )?;
+            core_id,
+            "core:power",
+            json!({
+                    "command": args.command,
+                    "timestamp": timestamp
+            })
+            .to_string(),
+        )?;
     }
-    
 
     if let Some(delay) = args.delay {
         std::thread::sleep(Duration::from_millis(delay as u64));
@@ -133,7 +132,7 @@ pub fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
 }
 
 #[trait_fn(EndpointRegisterService for EndpointRegister)]
-pub(super) fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
+pub(super) fn register<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     args_schema: S,
     response_schema: T,
     plugin_id: Uuid,
@@ -141,16 +140,14 @@ pub(super) fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     handler: RequestHandlerFuncUnsafeFP,
 ) -> Result<(), ServiceError> {
     if endpoint_name.as_ref().contains(':') {
-            return Err(ServiceError::InvalidString);
+        return Err(ServiceError::InvalidString);
     }
-    let argument_schema_json =
-        serde_json::from_str(args_schema.as_ref()).err_invalid_json()?;
-    let argument_validator = jsonschema::validator_for(&argument_schema_json)
-        .err_invalid_schema()?;
-    let response_schema_json =
-        serde_json::from_str(response_schema.as_ref()).err_invalid_json()?;
-    let response_validator = jsonschema::validator_for(&response_schema_json)
-        .err_invalid_schema()?;
+    let argument_schema_json = serde_json::from_str(args_schema.as_ref()).err_invalid_json()?;
+    let argument_validator =
+        jsonschema::validator_for(&argument_schema_json).err_invalid_schema()?;
+    let response_schema_json = serde_json::from_str(response_schema.as_ref()).err_invalid_json()?;
+    let response_validator =
+        jsonschema::validator_for(&response_schema_json).err_invalid_schema()?;
     let endpoint = Endpoint::new(handler, argument_validator, response_validator, plugin_id);
     let full_name = {
         let gov = get_gov().err_core()?;
@@ -166,7 +163,7 @@ pub(super) fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     };
 
     let core_id = get_gov().err_core()?.runtime().core_id();
-    EventTrigger::safe(
+    EventTrigger::trigger(
         core_id,
         "core:endpoint",
         json!({
@@ -180,7 +177,7 @@ pub(super) fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
 }
 
 #[trait_fn(EndpointUnregisterService for EndpointUnregister)]
-pub(super) fn safe<S: AsRef<str>>(
+pub(super) fn unregister<S: AsRef<str>>(
     plugin_id: Uuid,
     endpoint_name: S,
 ) -> Result<(), ServiceError> {
@@ -202,13 +199,12 @@ pub(super) fn safe<S: AsRef<str>>(
 }
 
 #[trait_fn(EndpointRequestService for EndpointRequest)]
-pub(super) fn safe<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
+pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
     endpoint_name: S,
     args: T,
 ) -> Result<EndpointResponse, ServiceError> {
     let args = args.into();
-    let arguments_json =
-        serde_json::from_str(args.as_ref()).err_invalid_json()?;
+    let arguments_json = serde_json::from_str(args.as_ref()).err_invalid_json()?;
     let handler = {
         let gov = get_gov().err_core()?;
         let endpoints = gov.endpoints().load();
@@ -219,16 +215,12 @@ pub(super) fn safe<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
             .argument_validator
             .validate(&arguments_json)
             .err_invalid_api()?;
-        endpoint.request_handler.from_fp()
+        endpoint.request_handler.to_safe_fp()
     };
     let response = handler(ContextSupplierImpl, args)?;
 
-    let response_json = serde_json::from_str(
-        response
-            .response()
-            .err_invalid_str()?,
-    )
-    .err_invalid_json()?;
+    let response_json =
+        serde_json::from_str(response.response().err_invalid_str()?).err_invalid_json()?;
 
     {
         let gov = get_gov().err_core()?;

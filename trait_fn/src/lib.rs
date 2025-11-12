@@ -73,36 +73,34 @@ pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn fn_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_item = parse_macro_input!(item as ItemTrait);
-    let x =match fn_trait_result(trait_item) {
+    match fn_trait_result(trait_item) {
         Ok(ok) => ok,
         Err(err) => err,
-    };
-    //println!("{}", x);
-    x
+    }
 }
 
 fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     let trait_vis = &item.vis;
     let trait_name = &item.ident;
     //signature
-    let [sig_func] = find_func_by_attr::<ArrayCollector<_,1>>(item.items.iter_mut(), &parse_quote!(#[sig]))
+    let [sig_func] = find_func_by_attr(item.items.iter_mut(), &parse_quote!(#[sig]))
             .collect_array()
             .map_err(annotation_error("sig"))?;
     let sig_fn_type = sig_to_fp(sig_func.sig.clone())?;
-    let sig_fp_getter = sig_getter(&sig_func, &sig_fn_type)?;
-    let sig_fp_type = create_type(&trait_vis, &trait_name, "SafeFP", &sig_func.sig.generics, &sig_fn_type);
+    let sig_fp_getter = sig_getter(sig_func, &sig_fn_type)?;
+    let sig_fp_type = create_type(trait_vis, trait_name, "SafeFP", &sig_func.sig.generics, &sig_fn_type);
 
     //adapter
-    let [adapter_func] = find_func_by_attr::<ArrayCollector<_, 1>>(item.items.iter_mut(), &parse_quote!(#[adapter]))
+    let [adapter_func] = find_func_by_attr(item.items.iter_mut(), &parse_quote!(#[adapter]))
             .collect_array()
             .map_err(annotation_error("adapter"))?;
     let adapter_fn_type = sig_to_fp(adapter_func.sig.clone())?;
-    let adapter_fp_getter = adapter_getter(&adapter_func, &adapter_fn_type)?;
-    let adapter_fp_type = create_type(&trait_vis, &trait_name, "UnsafeFP", &adapter_func.sig.generics, &adapter_fn_type);
+    let adapter_fp_getter = adapter_getter(adapter_func, &adapter_fn_type)?;
+    let adapter_fp_type = create_type(trait_vis, trait_name, "UnsafeFP", &adapter_func.sig.generics, &adapter_fn_type);
 
     //fp_adapter
     
-    let [fp_adapter] = find_func_by_attr::<ArrayCollector<_,1>>(item.items.iter_mut(), &parse_quote!(#[fp_adapter]))
+    let [fp_adapter] = find_func_by_attr(item.items.iter_mut(), &parse_quote!(#[fp_adapter]))
         .collect_array()
         .map_err(annotation_error("fp_adapter"))?;
     let (fp_adapter_trait, fp_adapter_trait_impl) = fp_adapter_trait(fp_adapter, trait_name, trait_vis)?;
@@ -158,12 +156,12 @@ fn fp_adapter_trait(fp_adapter: &TraitItemFn, trait_name: &Ident, trait_vis: &Vi
     let fp_adapter_generics = &fp_adapter.sig.generics;
     let fp_adapter_return_type = &fp_adapter.sig.output;
 
-    let fp_adapter_receiver = fp_adapter.sig.inputs.first().ok_or(new_error(&format!("{} must take one argument.", fp_adapter.sig.ident)))?;
+    let fp_adapter_receiver = fp_adapter.sig.inputs.first().ok_or(new_error(format!("{} must take one argument.", fp_adapter.sig.ident)))?;
     let FnArg::Receiver(fp_adapter_receiver) = fp_adapter_receiver else {
-        return Err(new_error(&format!("{} must take a self parameter.", fp_adapter.sig.ident)))
+        return Err(new_error(format!("{} must take a self parameter.", fp_adapter.sig.ident)))
     };
     let fp_adapter_receiver_type = &*fp_adapter_receiver.ty;
-    let fp_adapter_body = fp_adapter.default.as_ref().ok_or(new_error(&format!("{} must have an implementation.", fp_adapter.sig.ident)))?;
+    let fp_adapter_body = fp_adapter.default.as_ref().ok_or(new_error(format!("{} must have an implementation.", fp_adapter.sig.ident)))?;
 
     Ok((parse_quote! {
         #trait_vis trait #fp_adapter_trait_name {
@@ -180,7 +178,8 @@ fn fp_adapter_trait(fp_adapter: &TraitItemFn, trait_name: &Ident, trait_vis: &Vi
 
 
 
-fn find_func_by_attr<'a, B: FromIterator<&'a TraitItemFn>>(items: impl Iterator<Item= &'a mut TraitItem>, attr:&Attribute) -> impl Iterator<Item = &'a TraitItemFn> {
+#[allow(clippy::manual_inspect)]
+fn find_func_by_attr<'a>(items: impl Iterator<Item= &'a mut TraitItem>, attr:&Attribute) -> impl Iterator<Item = &'a TraitItemFn> {
     items.filter_map(|item| if let TraitItem::Fn(func) = item { Some(func)} else {None})
             .filter(|func| func.attrs.contains(attr))
             .map(move |func| { func.attrs.retain(|attrib| attrib != attr); func})
@@ -217,7 +216,7 @@ impl<T, const N:usize> FromIterator<T> for ArrayCollector<T, N> {
                 return ArrayCollector(Err(ArrayBoundsError::Only(i, N)));
             }
         }
-        if let Some(_) = iter.next() {
+        if iter.next().is_some() {
             result.iter_mut().for_each(|init_ele| unsafe { init_ele.assume_init_drop()});
             return ArrayCollector(Err(ArrayBoundsError::MoreThan(N)));
         } 

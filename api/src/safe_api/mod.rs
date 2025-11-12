@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use std::fmt::Display;
+use std::hash::Hash;
 
 use derive_more::Display;
 use thiserror::Error;
@@ -8,35 +9,23 @@ use uuid::Uuid;
 
 pub mod pointer_traits;
 
-#[derive(Debug, Clone, Copy, Display, Error)]
-pub enum ServiceError {
-    CoreInternalError,
-    NullFunctionPointer,
-    InvalidString,
-    InvalidJson,
-    InvalidSchema,
-    InvalidApi,
-    NotFound,
-    Unauthorized,
-    Duplicate,
-    PluginUninit,
-    ShutingDown,
-}
 
 use crate::cbindings::CApiVersion;
 use crate::cbindings::{CApplicationContext, CList_String, CPluginInfo};
 use crate::cbindings::{CEndpointResponse, CEventHandler, CServiceError, CString};
-use crate::misc::{StringConventError, StringListError};
+use crate::misc::ApiMiscError;
 use crate::safe_api::pointer_traits::{
     ContextSupplier, EndpointRegisterService, EndpointRegisterServiceFPAdapter,
     EndpointRegisterServiceUnsafeFP, EndpointRequestService, EndpointRequestServiceFPAdapter,
     EndpointRequestServiceUnsafeFP, EndpointUnregisterService, EndpointUnregisterServiceUnsafeFP,
-    EventHandlerFunc, EventHandlerFuncFPAdapter, EventHandlerFuncUnsafeFP, EventRegisterService,
-    EventRegisterServiceFPAdapter, EventRegisterServiceUnsafeFP, EventTriggerService,
-    EventTriggerServiceFPAdapter, EventTriggerServiceUnsafeFP, EventUnregisterService,
-    EventUnregisterServiceFPAdapter, EventUnregisterServiceUnsafeFP, HandlerRegisterService,
-    HandlerRegisterServiceFPAdapter, HandlerRegisterServiceUnsafeFP, HandlerUnregisterService,
-    HandlerUnregisterServiceFPAdapter, HandlerUnregisterServiceUnsafeFP, RequestHandlerFunc,
+    EventHandlerFunc, EventHandlerFuncFPAdapter, EventHandlerFuncUnsafeFP,
+    EventHandlerRegisterService, EventHandlerRegisterServiceFPAdapter,
+    EventHandlerRegisterServiceUnsafeFP, EventHandlerUnregisterService,
+    EventHandlerUnregisterServiceFPAdapter, EventHandlerUnregisterServiceUnsafeFP,
+    EventRegisterService, EventRegisterServiceFPAdapter, EventRegisterServiceUnsafeFP,
+    EventTriggerService, EventTriggerServiceFPAdapter, EventTriggerServiceUnsafeFP,
+    EventUnregisterService, EventUnregisterServiceFPAdapter, EventUnregisterServiceUnsafeFP,
+    RequestHandlerFunc,
 };
 
 pub trait ErrorMapper<T> {
@@ -97,9 +86,9 @@ impl<T> ErrorMapper<T> for Option<T> {
     fn err_shutting_down(self) -> Result<T, ServiceError> {
         self.ok_or(ServiceError::ShutingDown)
     }
-} 
+}
 
-impl<T, E> ErrorMapper<T> for Result<T,E> {
+impl<T, E> ErrorMapper<T> for Result<T, E> {
     fn err_core(self) -> Result<T, ServiceError> {
         self.ok().err_core()
     }
@@ -224,11 +213,12 @@ impl From<CServiceError> for Result<(), ServiceError> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct EventHandler {
     function: EventHandlerFuncUnsafeFP,
     handler_id: Uuid,
 }
+
 
 impl CEventHandler {
     pub fn to_rust(self) -> Result<EventHandler, ServiceError> {
@@ -266,7 +256,7 @@ impl EventHandler {
     }
 
     pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context_supplier: C, args: S) {
-        self.function.from_fp()(context_supplier, args)
+        self.function.to_safe_fp()(context_supplier, args)
     }
 
     pub fn handler(&self) -> EventHandlerFuncUnsafeFP {
@@ -275,6 +265,18 @@ impl EventHandler {
 
     pub fn id(&self) -> Uuid {
         self.handler_id
+    }
+}
+
+impl PartialEq for EventHandler {
+    fn eq(&self, other: &Self) -> bool {
+        self.handler_id == other.handler_id
+    }
+}
+
+impl Hash for EventHandler {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.handler_id.hash(state);
     }
 }
 
@@ -332,7 +334,7 @@ impl EndpointResponse {
         }
     }
 
-    pub fn response(&self) -> Result<&str, StringConventError> {
+    pub fn response(&self) -> Result<&str, ApiMiscError> {
         self.response.as_str()
     }
 }
@@ -371,8 +373,8 @@ impl Display for EndpointResponse {
 }
 
 pub struct ApplicationContext {
-    handler_register_service: HandlerRegisterServiceUnsafeFP,
-    handler_unregister_service: HandlerUnregisterServiceUnsafeFP,
+    handler_register_service: EventHandlerRegisterServiceUnsafeFP,
+    handler_unregister_service: EventHandlerUnregisterServiceUnsafeFP,
     event_register_service: EventRegisterServiceUnsafeFP,
     event_unregister_service: EventUnregisterServiceUnsafeFP,
     event_trigger_service: EventTriggerServiceUnsafeFP,
@@ -416,7 +418,7 @@ impl ApplicationContext {
         plugin_id: Uuid,
         event_name: T,
     ) -> Result<EventHandler, ServiceError> {
-        self.handler_register_service.from_fp()(handler, plugin_id, event_name)
+        self.handler_register_service.to_safe_fp()(handler, plugin_id, event_name)
     }
 
     pub fn unregister_event_handler<S: Into<CString>>(
@@ -425,7 +427,7 @@ impl ApplicationContext {
         plugin_id: Uuid,
         event_name: S,
     ) -> Result<(), ServiceError> {
-        self.handler_unregister_service.from_fp()(handler_id, plugin_id, event_name)
+        self.handler_unregister_service.to_safe_fp()(handler_id, plugin_id, event_name)
     }
 
     pub fn register_event<S: Into<CString>, T: Into<CString>>(
@@ -434,7 +436,7 @@ impl ApplicationContext {
         plugin_id: Uuid,
         event_name: T,
     ) -> Result<(), ServiceError> {
-        self.event_register_service.from_fp()(args_schema, plugin_id, event_name)
+        self.event_register_service.to_safe_fp()(args_schema, plugin_id, event_name)
     }
 
     pub fn unregister_event<S: Into<CString>>(
@@ -442,7 +444,7 @@ impl ApplicationContext {
         plugin_id: Uuid,
         event_name: S,
     ) -> Result<(), ServiceError> {
-        self.event_unregister_service.from_fp()(plugin_id, event_name)
+        self.event_unregister_service.to_safe_fp()(plugin_id, event_name)
     }
 
     pub fn trigger_event<S: Into<CString>, T: Into<CString>>(
@@ -451,17 +453,22 @@ impl ApplicationContext {
         event_name: S,
         args: T,
     ) -> Result<(), ServiceError> {
-        self.event_trigger_service.from_fp()(plugin_id, event_name, args)
+        self.event_trigger_service.to_safe_fp()(plugin_id, event_name, args)
     }
 
-    pub fn register_endpoint<S: Into<CString>, T:Into<CString>, Q: Into<CString>, F: RequestHandlerFunc>(
+    pub fn register_endpoint<
+        S: Into<CString>,
+        T: Into<CString>,
+        Q: Into<CString>,
+        F: RequestHandlerFunc,
+    >(
         &self,
         args_schema: S,
         response_schema: T,
         plugin_id: Uuid,
         endpoint_name: Q,
     ) -> Result<(), ServiceError> {
-        self.endpoint_register_service.from_fp::<_, _, _, F>()(
+        self.endpoint_register_service.to_safe_fp::<_, _, _, F>()(
             args_schema,
             response_schema,
             plugin_id,
@@ -474,7 +481,7 @@ impl ApplicationContext {
         plugin_id: Uuid,
         endpoint_name: S,
     ) -> Result<(), ServiceError> {
-        self.endpoint_unregister_service.from_fp()(plugin_id, endpoint_name)
+        self.endpoint_unregister_service.to_safe_fp()(plugin_id, endpoint_name)
     }
 
     pub fn endpoint_request<S: Into<CString>, T: Into<CString>>(
@@ -482,12 +489,13 @@ impl ApplicationContext {
         endpoint_name: S,
         args: T,
     ) -> Result<EndpointResponse, ServiceError> {
-        self.endpoint_request_service.from_fp()(endpoint_name, args)
+        self.endpoint_request_service.to_safe_fp()(endpoint_name, args)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_unsafe(
-        handler_register_service: HandlerRegisterServiceUnsafeFP,
-        handler_unregister_service: HandlerUnregisterServiceUnsafeFP,
+        handler_register_service: EventHandlerRegisterServiceUnsafeFP,
+        handler_unregister_service: EventHandlerUnregisterServiceUnsafeFP,
         event_register_service: EventRegisterServiceUnsafeFP,
         event_unregister_service: EventUnregisterServiceUnsafeFP,
         event_trigger_service: EventTriggerServiceUnsafeFP,
@@ -507,8 +515,8 @@ impl ApplicationContext {
         }
     }
     pub fn new<
-        HR: HandlerRegisterService,
-        HU: HandlerUnregisterService,
+        HR: EventHandlerRegisterService,
+        HU: EventHandlerUnregisterService,
         ER: EventRegisterService,
         EU: EventUnregisterService,
         ET: EventTriggerService,
@@ -549,8 +557,8 @@ impl CPluginInfo {
             name: self.name,
             version: self.version,
             dependencies: self.dependencies,
-            init_handler: self.init_handler.err_null_fp()?,
-            api_version: self.api_version,
+            init_handler: self.initHandler.err_null_fp()?,
+            api_version: self.apiVersion,
         })
     }
 }
@@ -561,17 +569,12 @@ impl PluginInfo {
             name: self.name,
             version: self.version,
             dependencies: self.dependencies,
-            init_handler: Some(self.init_handler),
-            api_version: self.api_version,
+            initHandler: Some(self.init_handler),
+            apiVersion: self.api_version,
         }
     }
 
-    pub fn new<
-        E: EventHandlerFunc,
-        N: Into<CString>,
-        V: Into<CString>,
-        D: Into<CList_String>,
-    >(
+    pub fn new<E: EventHandlerFunc, N: Into<CString>, V: Into<CString>, D: Into<CList_String>>(
         name: N,
         version: V,
         dependencies: D,
@@ -602,20 +605,20 @@ impl PluginInfo {
         }
     }
 
-    pub fn name(&self) -> Result<&str, StringConventError> {
+    pub fn name(&self) -> Result<&str, ApiMiscError> {
         self.name.as_str()
     }
 
-    pub fn version(&self) -> Result<&str, StringConventError> {
+    pub fn version(&self) -> Result<&str, ApiMiscError> {
         self.name.as_str()
     }
 
-    pub fn dependencies(&self) -> Result<Vec<&str>, StringListError> {
+    pub fn dependencies(&self) -> Result<Vec<&str>, ApiMiscError> {
         self.dependencies.as_array()
     }
 
     pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context: C, args: S) {
-        self.init_handler.from_fp()(context, args)
+        self.init_handler.to_safe_fp()(context, args)
     }
 
     pub fn handler(&self) -> EventHandlerFuncUnsafeFP {
@@ -637,4 +640,19 @@ impl From<CPluginInfo> for Result<PluginInfo, ServiceError> {
     fn from(value: CPluginInfo) -> Self {
         value.to_rust()
     }
+}
+
+#[derive(Debug, Clone, Copy, Display, Error)]
+pub enum ServiceError {
+    CoreInternalError,
+    NullFunctionPointer,
+    InvalidString,
+    InvalidJson,
+    InvalidSchema,
+    InvalidApi,
+    NotFound,
+    Unauthorized,
+    Duplicate,
+    PluginUninit,
+    ShutingDown,
 }

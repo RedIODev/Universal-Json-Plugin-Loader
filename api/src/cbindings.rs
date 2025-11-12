@@ -441,10 +441,10 @@ const _: () = {
     ["Offset of field: CEventHandler::error"]
         [::std::mem::offset_of!(CEventHandler, error) - 24usize];
 };
-pub type CHandlerRegisterService = ::std::option::Option<
+pub type CEventHandlerRegisterService = ::std::option::Option<
     unsafe extern "C" fn(arg1: CEventHandlerFP, arg2: CUuid, arg3: CString) -> CEventHandler,
 >;
-pub type CHandlerUnregisterService = ::std::option::Option<
+pub type CEventHandlerUnregisterService = ::std::option::Option<
     unsafe extern "C" fn(arg1: CUuid, arg2: CUuid, arg3: CString) -> CServiceError,
 >;
 pub type CEventRegisterService = ::std::option::Option<
@@ -507,8 +507,8 @@ const _: () = {
 #[repr(C)]
 #[derive(Debug)]
 pub struct CApplicationContext {
-    pub handlerRegisterService: CHandlerRegisterService,
-    pub handlerUnregisterService: CHandlerUnregisterService,
+    pub handlerRegisterService: CEventHandlerRegisterService,
+    pub handlerUnregisterService: CEventHandlerUnregisterService,
     pub eventRegisterService: CEventRegisterService,
     pub eventUnregisterService: CEventUnregisterService,
     pub eventTriggerService: CEventTriggerService,
@@ -559,8 +559,8 @@ pub struct CPluginInfo {
     pub name: CString,
     pub version: CString,
     pub dependencies: CList_String,
-    pub init_handler: CEventHandlerFP,
-    pub api_version: CApiVersion,
+    pub initHandler: CEventHandlerFP,
+    pub apiVersion: CApiVersion,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -571,16 +571,16 @@ const _: () = {
         [::std::mem::offset_of!(CPluginInfo, version) - 24usize];
     ["Offset of field: CPluginInfo::dependencies"]
         [::std::mem::offset_of!(CPluginInfo, dependencies) - 48usize];
-    ["Offset of field: CPluginInfo::init_handler"]
-        [::std::mem::offset_of!(CPluginInfo, init_handler) - 72usize];
-    ["Offset of field: CPluginInfo::api_version"]
-        [::std::mem::offset_of!(CPluginInfo, api_version) - 80usize];
+    ["Offset of field: CPluginInfo::initHandler"]
+        [::std::mem::offset_of!(CPluginInfo, initHandler) - 72usize];
+    ["Offset of field: CPluginInfo::apiVersion"]
+        [::std::mem::offset_of!(CPluginInfo, apiVersion) - 80usize];
 };
 unsafe extern "C" {
     pub static API_VERSION: CApiVersion;
 }
 unsafe extern "C" {
-    pub fn pluginMain(arg1: CUuid) -> CEventHandlerFP;
+    pub fn plugin_main(arg1: CUuid) -> CPluginInfo;
 }
 pub type C__int128_t = i128;
 pub type C__uint128_t = u128;

@@ -43,7 +43,7 @@ pub struct PluginOption {
     value: TomlValue,
 }
 
-fn parse_cli(value: &str) -> Result<TomlValue, ParseError> {
+fn parse_cli(value: &str) -> Result<TomlValue, CliError> {
     if let Ok(integer) = value.parse() {
         return Ok(TomlValue::Integer(integer));
     }
@@ -73,10 +73,10 @@ fn parse_cli(value: &str) -> Result<TomlValue, ParseError> {
                 .map(|item| {
                     item.split_once('=')
                         .map(|(key, value)| Ok((key.into(), parse_cli(value)?)))
-                        .ok_or(ParseError::MalformedValue)
+                        .ok_or(CliError::MalformedValue)
                         .flatten_()
                 })
-                .collect::<Result<toml::map::Map<String, TomlValue>, ParseError>>()?,
+                .collect::<Result<toml::map::Map<String, TomlValue>, CliError>>()?,
         ));
     }
     Ok(TomlValue::String(value.into()))
@@ -99,11 +99,11 @@ impl PluginOption {
 }
 
 impl FromStr for PluginOption {
-    type Err = ParseError;
+    type Err = CliError;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let (plugin_name, option) = s.split_once(':').ok_or(ParseError::NoPluginPrefix)?;
-        let (option_key, option_value) = option.split_once('=').ok_or(ParseError::NoValue)?;
+        let (plugin_name, option) = s.split_once(':').ok_or(CliError::NoPluginPrefix)?;
+        let (option_key, option_value) = option.split_once('=').ok_or(CliError::NoValue)?;
         Ok(PluginOption {
             plugin_name: plugin_name.into(),
             key: option_key.into(),
@@ -113,7 +113,7 @@ impl FromStr for PluginOption {
 }
 
 #[derive(Debug, Error, Display)]
-pub enum ParseError {
+pub enum CliError {
     NoPluginPrefix,
     NoValue,
     MalformedValue,

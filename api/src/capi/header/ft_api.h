@@ -1,4 +1,4 @@
-#ifndef FT_API_H 
+#ifndef FT_API_H
 #define FT_API_H
 
 #include "ft_util.h"
@@ -9,9 +9,10 @@
 
 // Application context that provides configuration services for the plugin to interact with the core application.
 // With a context you can register, uregister and trigger events, endpoints and handlers.
-typedef struct ApplicationContext {
-    NON_NULL HandlerRegisterService handlerRegisterService; 
-    NON_NULL HandlerUnregisterService handlerUnregisterService;
+typedef struct ApplicationContext
+{
+    NON_NULL EventHandlerRegisterService handlerRegisterService;
+    NON_NULL EventHandlerUnregisterService handlerUnregisterService;
     NON_NULL EventRegisterService eventRegisterService;
     NON_NULL EventUnregisterService eventUnregisterService;
     NON_NULL EventTriggerService eventTriggerService;
@@ -20,24 +21,23 @@ typedef struct ApplicationContext {
     NON_NULL EndpointRequestService endpointRequestService;
 } ApplicationContext;
 
-typedef struct {
+typedef struct
+{
     u16 major;
     u8 feature;
     u8 patch;
 } ApiVersion;
 
-typedef struct {
+typedef struct
+{
     String name;
     String version;
     List_String dependencies;
-    EventHandlerFP init_handler;
-    ApiVersion api_version;
+    EventHandlerFP initHandler;
+    ApiVersion apiVersion;
 } PluginInfo;
 
 extern const ApiVersion API_VERSION;
-NON_NULL EventHandlerFP pluginMain(Uuid);
-
-
-
+NON_NULL PluginInfo plugin_main(Uuid);
 
 #endif

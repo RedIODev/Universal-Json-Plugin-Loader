@@ -4,7 +4,7 @@
 mod cbindings;
 
 #[cfg(feature = "unsafe")]
-#[allow(non_camel_case_types, non_upper_case_globals, non_snake_case, unused, unsafe_op_in_unsafe_fn)]
+#[allow(non_camel_case_types, non_upper_case_globals, non_snake_case, unused, unsafe_op_in_unsafe_fn, clippy::missing_safety_doc)]
 pub mod cbindings;
 
 #[cfg(feature = "safe")]

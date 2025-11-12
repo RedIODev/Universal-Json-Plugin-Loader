@@ -300,13 +300,13 @@ typedef struct CEventHandler {
   CServiceError error;
 } CEventHandler;
 
-typedef struct CEventHandler (*CHandlerRegisterService)(CEventHandlerFP arg1,
+typedef struct CEventHandler (*CEventHandlerRegisterService)(CEventHandlerFP arg1,
+                                                             struct CUuid arg2,
+                                                             struct CString arg3);
+
+typedef CServiceError (*CEventHandlerUnregisterService)(struct CUuid arg1,
                                                         struct CUuid arg2,
                                                         struct CString arg3);
-
-typedef CServiceError (*CHandlerUnregisterService)(struct CUuid arg1,
-                                                   struct CUuid arg2,
-                                                   struct CString arg3);
 
 typedef CServiceError (*CEventRegisterService)(struct CString arg1,
                                                struct CUuid arg2,
@@ -336,8 +336,8 @@ typedef CServiceError (*CEndpointUnregisterService)(struct CUuid arg1, struct CS
 typedef struct CEndpointResponse (*CEndpointRequestService)(struct CString arg1, struct CString arg2);
 
 typedef struct CApplicationContext {
-  CHandlerRegisterService handlerRegisterService;
-  CHandlerUnregisterService handlerUnregisterService;
+  CEventHandlerRegisterService handlerRegisterService;
+  CEventHandlerUnregisterService handlerUnregisterService;
   CEventRegisterService eventRegisterService;
   CEventUnregisterService eventUnregisterService;
   CEventTriggerService eventTriggerService;
@@ -357,6 +357,14 @@ typedef struct CApiVersion {
   Cu8 feature;
   Cu8 patch;
 } CApiVersion;
+
+typedef struct CPluginInfo {
+  struct CString name;
+  struct CString version;
+  struct CList_String dependencies;
+  CEventHandlerFP initHandler;
+  struct CApiVersion apiVersion;
+} CPluginInfo;
 
 extern const struct CApiVersion API_VERSION;
 
@@ -392,6 +400,6 @@ extern struct CString *getListString(struct CList_String *list, Cu32 index);
 
 extern struct CList_String emptyListString(void);
 
-extern CEventHandlerFP pluginMain(struct CUuid arg1);
+extern struct CPluginInfo plugin_main(struct CUuid arg1);
 
 #endif  /* FT_RUSTBINDINGS_H */

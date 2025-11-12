@@ -8,14 +8,27 @@ use std::{
 };
 
 use crate::{
-    GOV, config::Config, governor::{Governor, get_gov}, loader::Loader, runtime::{endpoint::{EndpointRegister, EndpointRequest, EndpointUnregister}, event::{EventHandlerRegister, EventRegister, EventTrigger, EventUnregister, HandlerUnregister}}
+    GOV,
+    config::{Config, ConfigError},
+    governor::{GovernorError, get_gov},
+    loader::{Loader, LoaderError},
+    runtime::{
+        endpoint::{EndpointRegister, EndpointRequest, EndpointUnregister},
+        event::{
+            EventHandlerRegister, EventHandlerUnregister, EventRegister, EventTrigger,
+            EventUnregister,
+        },
+    },
 };
-use anyhow::Result;
 use atomic_enum::atomic_enum;
-use finance_together_api::{ApplicationContext, pointer_traits::{ContextSupplier, EventTriggerService, trait_fn}};
+use derive_more::Display;
+use finance_together_api::{
+    ApplicationContext, ServiceError, pointer_traits::{ContextSupplier, EventTriggerService, trait_fn}
+};
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use thiserror::Error;
 use threadpool::ThreadPool;
 use uuid::Uuid;
 
@@ -36,8 +49,8 @@ pub struct Runtime {
     event_pool: ThreadPool,
 }
 
-impl Runtime {
-    pub fn new() -> Self {
+impl Default for Runtime {
+    fn default() -> Self {
         Self {
             core_id: Uuid::new_v4(),
             power_state: AtomicPowerState::new(PowerState::Running),
@@ -49,8 +62,10 @@ impl Runtime {
             ),
         }
     }
+}
 
-    pub fn init() -> Result<()> {
+impl Runtime {
+    pub fn init() -> Result<(), RuntimeError> {
         let core_id;
         let plugins;
         {
@@ -66,25 +81,25 @@ impl Runtime {
                 .collect::<Vec<_>>()
         } // Mutex end
 
-        EventTrigger::safe(
-            core_id, 
-            "core:init", 
-            json!({"core_version": env!("CARGO_PKG_VERSION"), "plugins": plugins})
-                    .to_string())?;
+        EventTrigger::trigger(
+            core_id,
+            "core:init",
+            json!({"core_version": env!("CARGO_PKG_VERSION"), "plugins": plugins}).to_string(),
+        )?;
         Ok(())
     }
 
-    pub fn start() -> Result<()> {
+    pub fn start() -> Result<(), RuntimeError> {
         Config::init()?;
         Loader::load_libraries()?;
         Runtime::init()
     }
 
-    pub fn restart() -> Result<()> {
+    pub fn restart() -> Result<(), RuntimeError> {
         if let Some(gov) = &*GOV.load() {
             gov.runtime().event_pool.join();
         }
-        GOV.rcu(|_| Some(Arc::new(Governor::new())));
+        GOV.rcu(|_| Some(Arc::default()));
         Runtime::start()
     }
 
@@ -95,7 +110,7 @@ impl Runtime {
         GOV.rcu(|_| None);
     }
 
-    pub fn park() -> Result<PowerState> {
+    pub fn park() -> Result<PowerState, RuntimeError> {
         std::thread::park();
         {
             // Mutex start
@@ -131,14 +146,23 @@ fn schema_from_file(file: &str) -> Validator {
 }
 
 #[trait_fn(ContextSupplier for ContextSupplierImpl)]
-fn safe() -> ApplicationContext {
+fn supply() -> ApplicationContext {
     ApplicationContext::new::<
         EventHandlerRegister,
-        HandlerUnregister,
+        EventHandlerUnregister,
         EventRegister,
         EventUnregister,
         EventTrigger,
         EndpointRegister,
         EndpointUnregister,
-        EndpointRequest>()
+        EndpointRequest,
+    >()
+}
+
+#[derive(Debug, Display, Error)]
+pub enum RuntimeError {
+    Governor(#[from]GovernorError),
+    Service(#[from]ServiceError),
+    Config(#[from]ConfigError),
+    Loader(#[from]LoaderError)
 }
