@@ -140,6 +140,9 @@ pub(super) fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     endpoint_name: Q,
     handler: RequestHandlerFuncUnsafeFP,
 ) -> Result<(), ServiceError> {
+    if endpoint_name.as_ref().contains(':') {
+            return Err(ServiceError::InvalidString);
+    }
     let argument_schema_json =
         serde_json::from_str(args_schema.as_ref()).err_invalid_json()?;
     let argument_validator = jsonschema::validator_for(&argument_schema_json)

@@ -136,6 +136,9 @@ pub(super) fn safe<S: AsRef<str>, T: AsRef<str>>(
         plugin_id: Uuid,
         event_name: T,
     ) -> Result<(), ServiceError> {
+    if event_name.as_ref().contains(':') {
+        return Err(ServiceError::InvalidString);
+    }
     let argument_schema_json = serde_json::from_str(argument_schema.as_ref())
             .err_invalid_json()?;
 

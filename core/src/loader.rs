@@ -58,6 +58,13 @@ impl Loader {
             version: plugin_info.version.as_str()?.into(),
             dependencies,
         };
+
+        if plugin.name.contains(':') {
+            return Err(LoadError::InvalidName.into());
+        }
+        if &*plugin.name == "core" {
+            return Err(LoadError::InvalidName.into());
+        }
         let plugin_name = plugin.name.clone();
         let plugin_version = plugin.version.clone();
         let Some(init_handler) = plugin_info.init_handler else {
@@ -118,5 +125,6 @@ enum LoadError {
     NullInit,
     Internal,
     DuplicateName,
-    ApiVersion
+    ApiVersion,
+    InvalidName
 }
