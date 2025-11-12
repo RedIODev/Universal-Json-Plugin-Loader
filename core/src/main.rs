@@ -17,7 +17,7 @@ mod config;
 pub fn main() -> Result<()> {
     let gov_lifetime = GovernorLifetime::new()?;
     Runtime::start()?;
-    ctrlc::set_handler(ctrlc_handler)?;
+    ctrlc::set_handler(ctrlc_handler)?; //todo cancel stdin read when ^C is handled
     loop {
         match Runtime::park()? {
             PowerState::Shutdown => break,

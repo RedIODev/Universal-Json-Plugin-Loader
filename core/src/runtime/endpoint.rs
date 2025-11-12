@@ -4,7 +4,7 @@ use chrono::{SecondsFormat, Utc};
 use finance_together_api::{
     ApplicationContext, EndpointResponse, ErrorMapper, ServiceError, pointer_traits::{
         EndpointRegisterService, EndpointRequestService, EndpointUnregisterService,
-        EventTriggerService, RequestHandlerFunc, RequestHandlerFuncToSafe,
+        EventTriggerService, RequestHandlerFunc, RequestHandlerFuncFPAdapter,
         RequestHandlerFuncUnsafeFP, trait_fn,
     }
 };
@@ -52,7 +52,7 @@ pub fn register_core_endpoints(endpoints: &Endpoints, core_id: Uuid) {
     new_endpoints.insert(
         "core:power".into(),
         Endpoint::new(
-            CorePowerHandler::unsafe_fp(),
+            CorePowerHandler::adapter_fp(),
             schema_from_file(include_str!("../../endpoint/power-args.json")),
             schema_from_file(include_str!("../../endpoint/power-resp.json")),
             core_id,
@@ -75,8 +75,8 @@ struct PowerArgs {
     delay: Option<u32>,
 }
 
-#[trait_fn(RequestHandlerFunc)]
-pub fn CorePowerHandler<F: Fn() -> ApplicationContext, S: AsRef<str>>(
+#[trait_fn(RequestHandlerFunc for CorePowerHandler)]
+pub fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(
     context_supplier: F,
     args: S,
 ) -> Result<EndpointResponse, ServiceError> {
@@ -132,8 +132,8 @@ pub fn CorePowerHandler<F: Fn() -> ApplicationContext, S: AsRef<str>>(
     Ok(EndpointResponse::new(json!({}).to_string()))
 }
 
-#[trait_fn(EndpointRegisterService)]
-pub(super) fn EndpointRegister<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
+#[trait_fn(EndpointRegisterService for EndpointRegister)]
+pub(super) fn safe<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     args_schema: S,
     response_schema: T,
     plugin_id: Uuid,
@@ -176,8 +176,8 @@ pub(super) fn EndpointRegister<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     Ok(())
 }
 
-#[trait_fn(EndpointUnregisterService)]
-pub(super) fn EndpointUnregister<S: AsRef<str>>(
+#[trait_fn(EndpointUnregisterService for EndpointUnregister)]
+pub(super) fn safe<S: AsRef<str>>(
     plugin_id: Uuid,
     endpoint_name: S,
 ) -> Result<(), ServiceError> {
@@ -198,8 +198,8 @@ pub(super) fn EndpointUnregister<S: AsRef<str>>(
     Ok(())
 }
 
-#[trait_fn(EndpointRequestService)]
-pub(super) fn EndpointRequest<S: AsRef<str>, T: AsRef<str>>(
+#[trait_fn(EndpointRequestService for EndpointRequest)]
+pub(super) fn safe<S: AsRef<str>, T: AsRef<str>>(
     endpoint_name: S,
     args: T,
 ) -> Result<EndpointResponse, ServiceError> {
@@ -215,7 +215,7 @@ pub(super) fn EndpointRequest<S: AsRef<str>, T: AsRef<str>>(
             .argument_validator
             .validate(&arguments_json)
             .err_invalid_api()?;
-        endpoint.request_handler.to_safe()
+        endpoint.request_handler.from_fp()
     };
     let response = handler(ContextSupplierImpl, args)?;
 

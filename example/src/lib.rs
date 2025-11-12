@@ -35,7 +35,7 @@ struct PowWrap {
 }
 
 #[plugin_main]
-fn main(uuid: Uuid) -> PluginInfo {
+fn main(uuid: Uuid) -> PluginInfo { 
     println!("Main: Test from plugin! {:?}", uuid);
     UUID.store(Some(Arc::new(uuid)));
     PluginInfo::new::<InitTest, _, _, _>("ExamplePlugin", "0.0.2", [], API_VERSION)
@@ -44,8 +44,8 @@ fn main(uuid: Uuid) -> PluginInfo {
 static POWER: AtomicMyPow = AtomicMyPow::new(MyPow::None);
 static UUID: ArcSwapOption<Uuid> = ArcSwapOption::const_empty();
 
-#[trait_fn(EventHandlerFunc)]
-fn PowerListener<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
+#[trait_fn(EventHandlerFunc for PowerListener)]
+fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
     if let Err(e) = power_listener(context, args) {
         println!("Error: {}", e);
     }
@@ -63,8 +63,8 @@ fn PowerListener<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args:
     }
 }
 
-#[trait_fn(EventHandlerFunc)]
-fn InitTest<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
+#[trait_fn(EventHandlerFunc for InitTest)]
+fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
     if let Err(e) = init_test(context, args) {
         println!("Error: {}", e);
     }

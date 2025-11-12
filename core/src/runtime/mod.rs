@@ -130,10 +130,9 @@ fn schema_from_file(file: &str) -> Validator {
         .expect("invalid core schema!")
 }
 
-#[trait_fn(ContextSupplier)]
-fn ContextSupplierImpl() -> ApplicationContext {
+#[trait_fn(ContextSupplier for ContextSupplierImpl)]
+fn safe() -> ApplicationContext {
     ApplicationContext::new::<
-        ContextSupplierImpl, 
         EventHandlerRegister,
         HandlerUnregister,
         EventRegister,

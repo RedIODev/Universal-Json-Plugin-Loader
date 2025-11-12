@@ -1,7 +1,7 @@
 use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 use finance_together_api::{
-    ErrorMapper, EventHandler, ServiceError, pointer_traits::{EventHandlerFuncToSafe, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService, trait_fn}
+    ErrorMapper, EventHandler, ServiceError, pointer_traits::{EventHandlerFuncFPAdapter, EventHandlerFuncUnsafeFP, EventRegisterService, EventTriggerService, EventUnregisterService, HandlerRegisterService, HandlerUnregisterService, trait_fn}
 };
 use im::HashMap;
 use jsonschema::Validator;
@@ -94,8 +94,8 @@ pub fn register_core_events(events: &Events, core_id: Uuid) {
     events.rcu(|map| HashMap::clone(map).union(new_events.clone()));
 }
 
-#[trait_fn(HandlerRegisterService)]
-pub(super) fn EventHandlerRegister
+#[trait_fn(HandlerRegisterService for EventHandlerRegister)]
+pub(super) fn safe
     <T: AsRef<str>>
     (handler: EventHandlerFuncUnsafeFP, plugin_id: Uuid, event_name: T) -> Result<EventHandler, ServiceError> {
     let event_handler = EventHandler::new_unsafe(handler, Uuid::new_v4());
@@ -108,8 +108,8 @@ pub(super) fn EventHandlerRegister
     Ok(event_handler)
 }
 
-#[trait_fn(HandlerUnregisterService)] 
-pub(super) fn HandlerUnregister<S: AsRef<str>>(
+#[trait_fn(HandlerUnregisterService for HandlerUnregister)] 
+pub(super) fn safe<S: AsRef<str>>(
         handler_id: Uuid,
         plugin_id: Uuid,
         event_name: S,
@@ -130,8 +130,8 @@ pub(super) fn HandlerUnregister<S: AsRef<str>>(
     Ok(())
 }
 
-#[trait_fn(EventRegisterService)]
-pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
+#[trait_fn(EventRegisterService for EventRegister)]
+pub(super) fn safe<S: AsRef<str>, T: AsRef<str>>(
         argument_schema: S,
         plugin_id: Uuid,
         event_name: T,
@@ -168,8 +168,8 @@ pub(super) fn EventRegister<S: AsRef<str>, T: AsRef<str>>(
                 .to_string())
 }
 
-#[trait_fn(EventUnregisterService)] 
-pub(super) fn EventUnregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> Result<(), ServiceError> {
+#[trait_fn(EventUnregisterService for EventUnregister)] 
+pub(super) fn safe<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> Result<(), ServiceError> {
     {
         let gov = get_gov().err_core()?;
         let events = gov.events().load();
@@ -185,8 +185,8 @@ pub(super) fn EventUnregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> 
     Ok(())
 }
 
-#[trait_fn(EventTriggerService)]
-pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
+#[trait_fn(EventTriggerService for EventTrigger)]
+pub(super) fn safe<S: AsRef<str>, T: AsRef<str>>(
         plugin_id: Uuid,
         event_name: S,
         args: T,
@@ -223,7 +223,7 @@ pub(super) fn EventTrigger<S: AsRef<str>, T: AsRef<str>>(
     let owned_args = args.as_ref().to_string();
     executor.execute(move || {
         for func in funcs {
-            func.to_safe()(ContextSupplierImpl, owned_args.clone());
+            func.from_fp()(ContextSupplierImpl, owned_args.clone());
         }
     });
     Ok(())
