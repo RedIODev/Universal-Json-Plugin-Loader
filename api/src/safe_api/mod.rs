@@ -265,7 +265,7 @@ impl EventHandler {
         }
     }
 
-    pub fn handle<C: ContextSupplier, S: AsRef<str>>(&self, context_supplier: C, args: S) {
+    pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context_supplier: C, args: S) {
         self.function.from_fp()(context_supplier, args)
     }
 
@@ -326,9 +326,9 @@ impl EndpointResponse {
         }
     }
 
-    pub fn new<S: Into<Box<str>>>(response: S) -> Self {
+    pub fn new<S: Into<CString>>(response: S) -> Self {
         Self {
-            response: response.into().into(),
+            response: response.into(),
         }
     }
 
@@ -410,7 +410,7 @@ impl ApplicationContext {
         }
     }
 
-    pub fn register_event_handler<E: EventHandlerFunc, T: AsRef<str>>(
+    pub fn register_event_handler<E: EventHandlerFunc, T: Into<CString>>(
         &self,
         handler: E,
         plugin_id: Uuid,
@@ -419,7 +419,7 @@ impl ApplicationContext {
         self.handler_register_service.from_fp()(handler, plugin_id, event_name)
     }
 
-    pub fn unregister_event_handler<S: AsRef<str>>(
+    pub fn unregister_event_handler<S: Into<CString>>(
         &self,
         handler_id: Uuid,
         plugin_id: Uuid,
@@ -428,7 +428,7 @@ impl ApplicationContext {
         self.handler_unregister_service.from_fp()(handler_id, plugin_id, event_name)
     }
 
-    pub fn register_event<S: AsRef<str>, T: AsRef<str>>(
+    pub fn register_event<S: Into<CString>, T: Into<CString>>(
         &self,
         args_schema: S,
         plugin_id: Uuid,
@@ -437,7 +437,7 @@ impl ApplicationContext {
         self.event_register_service.from_fp()(args_schema, plugin_id, event_name)
     }
 
-    pub fn unregister_event<S: AsRef<str>>(
+    pub fn unregister_event<S: Into<CString>>(
         &self,
         plugin_id: Uuid,
         event_name: S,
@@ -445,7 +445,7 @@ impl ApplicationContext {
         self.event_unregister_service.from_fp()(plugin_id, event_name)
     }
 
-    pub fn trigger_event<S: AsRef<str>, T: AsRef<str>>(
+    pub fn trigger_event<S: Into<CString>, T: Into<CString>>(
         &self,
         plugin_id: Uuid,
         event_name: S,
@@ -454,7 +454,7 @@ impl ApplicationContext {
         self.event_trigger_service.from_fp()(plugin_id, event_name, args)
     }
 
-    pub fn register_endpoint<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>, F: RequestHandlerFunc>(
+    pub fn register_endpoint<S: Into<CString>, T:Into<CString>, Q: Into<CString>, F: RequestHandlerFunc>(
         &self,
         args_schema: S,
         response_schema: T,
@@ -469,7 +469,7 @@ impl ApplicationContext {
         )
     }
 
-    pub fn unregister_endpoint<S: AsRef<str>>(
+    pub fn unregister_endpoint<S: Into<CString>>(
         &self,
         plugin_id: Uuid,
         endpoint_name: S,
@@ -477,7 +477,7 @@ impl ApplicationContext {
         self.endpoint_unregister_service.from_fp()(plugin_id, endpoint_name)
     }
 
-    pub fn endpoint_request<S: AsRef<str>, T: AsRef<str>>(
+    pub fn endpoint_request<S: Into<CString>, T: Into<CString>>(
         &self,
         endpoint_name: S,
         args: T,
@@ -568,9 +568,9 @@ impl PluginInfo {
 
     pub fn new<
         E: EventHandlerFunc,
-        N: Into<Box<str>>,
-        V: Into<Box<str>>,
-        D: Into<Box<[CString]>>,
+        N: Into<CString>,
+        V: Into<CString>,
+        D: Into<CList_String>,
     >(
         name: N,
         version: V,
@@ -578,15 +578,15 @@ impl PluginInfo {
         api_version: CApiVersion,
     ) -> Self {
         Self {
-            name: name.into().into(),
-            version: version.into().into(),
-            dependencies: dependencies.into().into(),
+            name: name.into(),
+            version: version.into(),
+            dependencies: dependencies.into(),
             init_handler: E::adapter_fp(),
             api_version,
         }
     }
 
-    pub fn new_unsafe<N: Into<Box<str>>, V: Into<Box<str>>, D: Into<Box<[CString]>>>(
+    pub fn new_unsafe<N: Into<CString>, V: Into<CString>, D: Into<CList_String>>(
         name: N,
         version: V,
         dependencies: D,
@@ -594,9 +594,9 @@ impl PluginInfo {
         api_version: CApiVersion,
     ) -> Self {
         Self {
-            name: name.into().into(),
-            version: version.into().into(),
-            dependencies: dependencies.into().into(),
+            name: name.into(),
+            version: version.into(),
+            dependencies: dependencies.into(),
             init_handler: handler,
             api_version,
         }
@@ -614,7 +614,7 @@ impl PluginInfo {
         self.dependencies.as_array()
     }
 
-    pub fn handle<C: ContextSupplier, S: AsRef<str>>(&self, context: C, args: S) {
+    pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context: C, args: S) {
         self.init_handler.from_fp()(context, args)
     }
 

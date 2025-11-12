@@ -38,8 +38,8 @@ pub trait EventHandlerFunc {
     }
 
     #[fp_adapter]
-    fn from_fp<C: ContextSupplier, S: AsRef<str>>(self: EventHandlerFuncUnsafeFP) -> impl Fn(C, S) {
-        move |_, args| unsafe { self(Some(C::adapter_fp()), args.as_ref().into()) }
+    fn from_fp<C: ContextSupplier, S: Into<CString>>(self: EventHandlerFuncUnsafeFP) -> impl Fn(C, S) {
+        move |_, args| unsafe { self(Some(C::adapter_fp()), args.into()) }
     }
 }
 
@@ -66,9 +66,9 @@ pub trait HandlerRegisterService {
     }
 
     #[fp_adapter]
-    fn from_fp<E: EventHandlerFunc, T: AsRef<str>>(self: HandlerRegisterServiceUnsafeFP) -> impl Fn(E, Uuid, T) -> Result<EventHandler, ServiceError> {
+    fn from_fp<E: EventHandlerFunc, T: Into<CString>>(self: HandlerRegisterServiceUnsafeFP) -> impl Fn(E, Uuid, T) -> Result<EventHandler, ServiceError> {
         move |_, plugin_id, event_name| unsafe {
-            self(Some(E::adapter_fp()), plugin_id.into(), event_name.as_ref().into()).into()
+            self(Some(E::adapter_fp()), plugin_id.into(), event_name.into()).into()
         }
     }
 }
@@ -96,14 +96,14 @@ pub trait HandlerUnregisterService {
     }
 
     #[fp_adapter]
-    fn from_fp<S: AsRef<str>>(
+    fn from_fp<S: Into<CString>>(
         self: HandlerUnregisterServiceUnsafeFP,
     ) -> impl Fn(Uuid, Uuid, S) -> Result<(), ServiceError> {
         move |handler_id, plugin_id, event_name| unsafe {
             self(
                 handler_id.into(),
                 plugin_id.into(),
-                event_name.as_ref().into(),
+                event_name.into(),
             )
             .into()
         }
@@ -137,14 +137,14 @@ pub trait EventRegisterService {
     }
 
     #[fp_adapter]
-    fn from_fp<S: AsRef<str>, T: AsRef<str>>(
+    fn from_fp<S: Into<CString>, T: Into<CString>>(
         self: EventRegisterServiceUnsafeFP,
     ) -> impl Fn(S, Uuid, T) -> Result<(), ServiceError> {
         move |event_schema, plugin_id, event_name| unsafe {
             self(
-                event_schema.as_ref().into(),
+                event_schema.into(),
                 plugin_id.into(),
-                event_name.as_ref().into(),
+                event_name.into(),
             )
             .into()
         }
@@ -166,11 +166,11 @@ pub trait EventUnregisterService {
     }
 
     #[fp_adapter]
-    fn from_fp<S: AsRef<str>>(
+    fn from_fp<S: Into<CString>>(
         self: EventUnregisterServiceUnsafeFP,
     ) -> impl Fn(Uuid, S) -> Result<(), ServiceError> {
         move |plugin_id, event_name| unsafe {
-            self(plugin_id.into(), event_name.as_ref().into()).into()
+            self(plugin_id.into(), event_name.into()).into()
         }
     }
 }
@@ -202,14 +202,14 @@ pub trait EventTriggerService {
     }
 
     #[fp_adapter]
-    fn from_fp<S: AsRef<str>, T: AsRef<str>>(
+    fn from_fp<S: Into<CString>, T: Into<CString>>(
         self: EventTriggerServiceUnsafeFP,
     ) -> impl Fn(Uuid, S, T) -> Result<(), ServiceError> {
         move |plugin_id, event_name, args| unsafe {
             self(
                 plugin_id.into(),
-                event_name.as_ref().into(),
-                args.as_ref().into(),
+                event_name.into(),
+                args.into(),
             )
             .into()
         }
@@ -293,19 +293,19 @@ pub trait EndpointRegisterService {
 
     #[fp_adapter]
     fn from_fp<
-        S: AsRef<str>,
-        T: AsRef<str>,
-        Q: AsRef<str>,
+        S: Into<CString>,
+        T: Into<CString>,
+        Q: Into<CString>,
         F: RequestHandlerFunc,
     >(
         self: EndpointRegisterServiceUnsafeFP,
     ) -> impl Fn(S, T, Uuid, Q) -> Result<(), ServiceError> {
         move |args_schema, response_schema, plugin_id, endpoint_name| unsafe {
             self(
-                args_schema.as_ref().into(),
-                response_schema.as_ref().into(),
+                args_schema.into(),
+                response_schema.into(),
                 plugin_id.into(),
-                endpoint_name.as_ref().into(),
+                endpoint_name.into(),
                 Some(F::adapter_fp()),
             )
             .into()
@@ -328,9 +328,9 @@ pub trait EndpointUnregisterService {
     }
 
     #[fp_adapter]
-    fn from_fp<S: AsRef<str>>(self: EndpointUnregisterServiceUnsafeFP) -> impl Fn(Uuid, S) -> Result<(), ServiceError> {
+    fn from_fp<S: Into<CString>>(self: EndpointUnregisterServiceUnsafeFP) -> impl Fn(Uuid, S) -> Result<(), ServiceError> {
         move |plugin_id, endpoint_name| unsafe {
-            self(plugin_id.into(), endpoint_name.as_ref().into()).into()
+            self(plugin_id.into(), endpoint_name.into()).into()
         }
     }
 }
@@ -355,9 +355,9 @@ pub trait EndpointRequestService {
     }
 
     #[fp_adapter]
-    fn from_fp<S: AsRef<str>, T: AsRef<str>>(self: EndpointRequestServiceUnsafeFP) -> impl Fn(S, T) -> Result<EndpointResponse, ServiceError> {
+    fn from_fp<S: Into<CString>, T: Into<CString>>(self: EndpointRequestServiceUnsafeFP) -> impl Fn(S, T) -> Result<EndpointResponse, ServiceError> {
         move |endpoint_name, args| unsafe {
-            self(endpoint_name.as_ref().into(), args.as_ref().into()).into()
+            self(endpoint_name.into(), args.into()).into()
         }
     }
 }
