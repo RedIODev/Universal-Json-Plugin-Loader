@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
 use finance_together_api::{
@@ -76,11 +76,11 @@ struct PowerArgs {
 }
 
 #[trait_fn(RequestHandlerFunc for CorePowerHandler)]
-pub fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(
+pub fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     context_supplier: F,
     args: S,
 ) -> Result<EndpointResponse, ServiceError> {
-    let args = serde_json::from_str::<PowerArgs>(args.as_ref())
+    let args = serde_json::from_str::<PowerArgs>(&args.into())
         .err_invalid_json()?;
     match get_gov().err_core()?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
@@ -202,10 +202,11 @@ pub(super) fn safe<S: AsRef<str>>(
 }
 
 #[trait_fn(EndpointRequestService for EndpointRequest)]
-pub(super) fn safe<S: AsRef<str>, T: AsRef<str>>(
+pub(super) fn safe<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
     endpoint_name: S,
     args: T,
 ) -> Result<EndpointResponse, ServiceError> {
+    let args = args.into();
     let arguments_json =
         serde_json::from_str(args.as_ref()).err_invalid_json()?;
     let handler = {

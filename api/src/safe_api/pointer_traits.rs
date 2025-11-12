@@ -1,4 +1,6 @@
 
+use std::borrow::Cow;
+
 use uuid::Uuid;
 
 use crate::{
@@ -28,7 +30,7 @@ pub trait ContextSupplier {
 #[fn_trait]
 pub trait EventHandlerFunc {
     #[sig]
-    fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S);
+    fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a,str>>>(context: F, args: S);
 
     #[adapter]
     unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
@@ -219,7 +221,7 @@ pub trait EventTriggerService {
 #[fn_trait]
 pub trait RequestHandlerFunc {
     #[sig]
-    fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context_supplier: F, args: S) -> Result<EndpointResponse, ServiceError>;
+    fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context_supplier: F, args: S) -> Result<EndpointResponse, ServiceError>;
 
     #[adapter]
     unsafe extern "C" fn adapter(
@@ -239,9 +241,9 @@ pub trait RequestHandlerFunc {
     }
 
     #[fp_adapter]
-    fn from_fp<C: ContextSupplier, S: AsRef<str>>(self: RequestHandlerFuncUnsafeFP) -> impl Fn(C, S) -> Result<EndpointResponse, ServiceError> {
+    fn from_fp<'a, C: ContextSupplier, S: Into<CString>>(self: RequestHandlerFuncUnsafeFP) -> impl Fn(C, S) -> Result<EndpointResponse, ServiceError> {
         move |_, args| unsafe {
-            self(Some(C::adapter_fp()), args.as_ref().into()).into()
+            self(Some(C::adapter_fp()), args.into()).into()
         }
     }
 }
@@ -338,7 +340,7 @@ pub trait EndpointUnregisterService {
 #[fn_trait]
 pub trait EndpointRequestService {
     #[sig]
-    fn safe<S: AsRef<str>, T: AsRef<str>>(endpoint_name: S, args: T) -> Result<EndpointResponse, ServiceError>;
+    fn safe<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(endpoint_name: S, args: T) -> Result<EndpointResponse, ServiceError>;
 
     #[adapter]
     unsafe extern "C" fn adapter(endpoint_name: CString, args: CString) -> CEndpointResponse {

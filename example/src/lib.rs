@@ -1,9 +1,5 @@
 use std::{
-    error::Error,
-    io::{Write, stdin, stdout},
-    sync::{Arc, atomic::Ordering},
-    thread,
-    time::Duration,
+    borrow::Cow, error::Error, io::{Write, stdin, stdout}, sync::{Arc, atomic::Ordering}, thread, time::Duration
 };
 
 use arc_swap::ArcSwapOption;
@@ -45,15 +41,15 @@ static POWER: AtomicMyPow = AtomicMyPow::new(MyPow::None);
 static UUID: ArcSwapOption<Uuid> = ArcSwapOption::const_empty();
 
 #[trait_fn(EventHandlerFunc for PowerListener)]
-fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
+fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
     if let Err(e) = power_listener(context, args) {
         println!("Error: {}", e);
     }
-    fn power_listener<F: Fn() -> ApplicationContext, S: AsRef<str>>(
+    fn power_listener<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
         context: F,
         args: S,
     ) -> Result<(), Box<dyn Error>> {
-        let args: PowWrap = serde_json::from_str(args.as_ref())?;
+        let args: PowWrap = serde_json::from_str(&args.into())?;
         POWER.store(args.command, Ordering::Relaxed);
         if args.delay.is_some() {
             context().endpoint_request("core:power", json!({"command": "cancel"}).to_string())?;
@@ -64,15 +60,15 @@ fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
 }
 
 #[trait_fn(EventHandlerFunc for InitTest)]
-fn safe<F: Fn() -> ApplicationContext, S: AsRef<str>>(context: F, args: S) {
+fn safe<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
     if let Err(e) = init_test(context, args) {
         println!("Error: {}", e);
     }
-    fn init_test<F: Fn() -> ApplicationContext, S: AsRef<str>>(
+    fn init_test<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
         context: F,
         args: S,
     ) -> Result<(), Box<dyn Error>> {
-        println!("Plugin: Init: Test from plugin! Args:{}", args.as_ref());
+        println!("Plugin: Init: Test from plugin! Args:{}", args.into());
         let uuid = (**UUID.load().as_ref().ok_or("Uuid None")?).clone();
         context().register_event_handler(PowerListener, uuid, "core:power")?;
         println!("before while loop with {:?}", POWER.load(Ordering::Relaxed));
