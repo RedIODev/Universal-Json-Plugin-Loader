@@ -85,14 +85,16 @@ fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     let trait_vis = &item.vis;
     let trait_name = &item.ident;
     //signature
-    let [sig_func] = find_func_by_attr::<ArrayCollector<_,1>>(item.items.iter_mut(), &parse_quote!(#[sig])).0
+    let [sig_func] = find_func_by_attr::<ArrayCollector<_,1>>(item.items.iter_mut(), &parse_quote!(#[sig]))
+            .collect_array()
             .map_err(annotation_error("sig"))?;
     let sig_fn_type = sig_to_fp(sig_func.sig.clone())?;
     let sig_fp_getter = sig_getter(&sig_func, &sig_fn_type)?;
     let sig_fp_type = create_type(&trait_vis, &trait_name, "SafeFP", &sig_func.sig.generics, &sig_fn_type);
 
     //adapter
-    let [adapter_func] = find_func_by_attr::<ArrayCollector<_, 1>>(item.items.iter_mut(), &parse_quote!(#[adapter])).0
+    let [adapter_func] = find_func_by_attr::<ArrayCollector<_, 1>>(item.items.iter_mut(), &parse_quote!(#[adapter]))
+            .collect_array()
             .map_err(annotation_error("adapter"))?;
     let adapter_fn_type = sig_to_fp(adapter_func.sig.clone())?;
     let adapter_fp_getter = adapter_getter(&adapter_func, &adapter_fn_type)?;
@@ -100,7 +102,8 @@ fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
 
     //fp_adapter
     
-    let [fp_adapter] = find_func_by_attr::<ArrayCollector<_,1>>(item.items.iter_mut(), &parse_quote!(#[fp_adapter])).0
+    let [fp_adapter] = find_func_by_attr::<ArrayCollector<_,1>>(item.items.iter_mut(), &parse_quote!(#[fp_adapter]))
+        .collect_array()
         .map_err(annotation_error("fp_adapter"))?;
     let (fp_adapter_trait, fp_adapter_trait_impl) = fp_adapter_trait(fp_adapter, trait_name, trait_vis)?;
 
@@ -177,19 +180,32 @@ fn fp_adapter_trait(fp_adapter: &TraitItemFn, trait_name: &Ident, trait_vis: &Vi
 
 
 
-fn find_func_by_attr<'a, B: FromIterator<&'a TraitItemFn>>(items: impl Iterator<Item= &'a mut TraitItem>, attr:&Attribute) -> B {
+fn find_func_by_attr<'a, B: FromIterator<&'a TraitItemFn>>(items: impl Iterator<Item= &'a mut TraitItem>, attr:&Attribute) -> impl Iterator<Item = &'a TraitItemFn> {
     items.filter_map(|item| if let TraitItem::Fn(func) = item { Some(func)} else {None})
             .filter(|func| func.attrs.contains(attr))
-            .map(|func| { func.attrs.retain(|attrib| attrib != attr); func})
+            .map(move |func| { func.attrs.retain(|attrib| attrib != attr); func})
             .map(|func| &*func)
-            .collect()
 }
+
+trait ArrayIter: Iterator {
+    fn collect_array<const N: usize>(self) -> Result<[Self::Item;N], ArrayBoundsError> where Self: Sized{
+        let collector = ArrayCollector::from_iter(self);
+        collector.0
+    }
+}
+
+impl<T> ArrayIter for T where T: Iterator + ?Sized {}
 
 struct ArrayCollector<T, const N:usize>(Result<[T;N], ArrayBoundsError>);
 
 
 impl<T, const N:usize> FromIterator<T> for ArrayCollector<T, N> {
     fn from_iter<B: IntoIterator<Item = T>>(iter: B) -> Self {
+        // SAFETY: The result items are guaranteed to be uninit until the for loop.
+        // After the ith iteration indices from 0 to i are guaranteed to be init by passing through the if branch.
+        // In case the iterator ends before N elements got initialized the first i elements that are init get droped.
+        // If the iterator contains more then N elements all elements in result get droped.
+        // Once the iter is empty and N(all) elements in the array got initialized it is safe to map all elements with assume_init.
         let mut result = std::array::from_fn::<_, N,_>(|_| MaybeUninit::<T>::uninit());
         let mut iter = iter.into_iter();
         for i in 0..N {
