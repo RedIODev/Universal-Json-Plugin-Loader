@@ -78,7 +78,7 @@ impl Runtime {
                 .load()
                 .values()
                 .map(|plugin| json!({"name": *plugin.name, "version": *plugin.version}))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
         } // Mutex end
 
         EventTrigger::trigger(

@@ -75,9 +75,10 @@ pub trait TrueOrErr {
 
 impl TrueOrErr for bool {
     fn or_error<E>(self, error: E) -> Result<(), E> {
-        match self {
-            true => Ok(()),
-            false => Err(error),
+        if self {
+            Ok(())
+        } else {
+            Err(error)
         }
     }
 }
@@ -194,8 +195,7 @@ impl<T,E> ResultFlatten<T,E> for Result<Result<T, E>, E> {
     fn flatten_(self) -> Result<T,E> {
         match self {
             Ok(Ok(ok)) => Ok(ok),
-            Ok(Err(err)) => Err(err),
-            Err(err) => Err(err)
+            Ok(Err(err)) | Err(err) => Err(err)
         }
     }
 }

@@ -89,8 +89,7 @@ impl Config {
                 entry
                     .path()
                     .extension()
-                    .map(|extension| extension == "toml")
-                    .unwrap_or(false)
+                    .is_some_and(|extension| extension == "toml")
             })
             .map(|config_file| {
                 Ok((

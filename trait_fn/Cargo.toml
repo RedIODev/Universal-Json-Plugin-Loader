@@ -10,3 +10,6 @@ convert_case = "0.8.0"
 
 [lib]
 proc-macro = true
+
+[lints.clippy]
+pedantic = "warn"

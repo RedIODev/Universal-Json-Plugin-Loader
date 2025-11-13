@@ -57,13 +57,14 @@ where
 }
 
 unsafe extern "C" fn drop_string(str: *const u8, length: usize) {
-    let slice = unsafe { std::slice::from_raw_parts_mut(str as *mut u8, length) };
+    let slice = unsafe { std::slice::from_raw_parts_mut(str.cast_mut(), length) };
     let string = unsafe { std::str::from_utf8_unchecked_mut(slice) };
     let owned = unsafe { Box::from_raw(string) };
     drop(owned);
 }
 
 impl CEventHandler {
+    #[must_use]
     pub fn new_error(error: CServiceError) -> Self {
         Self {
             function: None,
@@ -77,6 +78,7 @@ impl CEventHandler {
 }
 
 impl CEndpointResponse {
+    #[must_use]
     pub fn new_error(error: CServiceError) -> Self {
         Self {
             response: CString::from(""),
@@ -116,10 +118,13 @@ where
         if boxed_list.is_empty() {
             return unsafe { emptyListString() };
         }
+        let Ok(length) = boxed_list.len().try_into() else {
+            return unsafe { emptyListString() };
+        };
         let leaked = unsafe { &mut *Box::into_raw(boxed_list) };
         let ptr = leaked.as_mut_ptr();
-        let length = leaked.len();
-        unsafe { createListString(ptr, length as u32, Some(drop_list_string)) }
+        
+        unsafe { createListString(ptr, length, Some(drop_list_string)) }
     }
 }
 
@@ -127,14 +132,6 @@ unsafe extern "C" fn drop_list_string(list: *mut CString, length: u32) {
     let slice = unsafe { std::slice::from_raw_parts_mut(list, length as usize) };
     let owned = unsafe { Box::from_raw(slice) };
     drop(owned);
-}
-
-
-
-impl Clone for CApiVersion {
-    fn clone(&self) -> Self {
-        *self
-    }
 }
 
 impl Copy for CApiVersion {}
@@ -150,6 +147,7 @@ impl PartialEq for CApiVersion {
 }
 
 impl CApiVersion {
+    #[must_use]
     pub const fn new(major: u16, feature: u8, patch: u8) -> Self {
         Self {
             major,
@@ -158,6 +156,7 @@ impl CApiVersion {
         }
     }
 
+    #[must_use]
     pub const fn cargo() -> Self {
         let cargo = env!("CARGO_PKG_VERSION");
         let bytes = cargo.as_bytes();

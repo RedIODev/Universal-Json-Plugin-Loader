@@ -14,3 +14,6 @@ finance-together-api = { path = "../api", features = ["safe"] }
 
 [lib]
 crate-type = ["dylib"]
+
+[lints.clippy]
+pedantic = "warn"

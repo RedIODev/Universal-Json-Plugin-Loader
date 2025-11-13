@@ -234,14 +234,14 @@ pub(super) fn trigger<S: AsRef<str>, T: AsRef<str>>(
             .argument_validator
             .validate(&event_arguments_json)
             .err_invalid_api()?;
-        if event_name.as_ref() != "core:init" {
-            event.handlers.iter().map(|h| h.handler).collect()
-        } else {
+        if event_name.as_ref() == "core:init" {
             let Some(funcs) = sort_handlers(event.handlers.iter(), &gov.loader().plugins().load())
             else {
                 return Err(ServiceError::CoreInternalError);
             };
             funcs
+        } else {
+            event.handlers.iter().map(|h| h.handler).collect()
         }
     };
     let executor = get_gov().err_core()?.runtime().event_pool.clone();

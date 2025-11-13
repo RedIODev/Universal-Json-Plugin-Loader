@@ -17,6 +17,18 @@ impl ParseCallbacks for CPrefix {
     }
 }
 
+#[derive(Debug)]
+struct CloneDerive;
+
+impl ParseCallbacks for CloneDerive {
+    fn add_derives(&self, info: &bindgen_helpers::callbacks::DeriveInfo<'_>) -> Vec<String> {
+        if info.name == "CApiVersion" {
+            return vec!["Clone".to_string()];
+        }
+        vec![]
+    }
+}
+
 fn main() {
     println!("cargo::rerun-if-changed=src/capi/header/ft_api.h");
 
@@ -45,6 +57,7 @@ fn main() {
         .default_enum_style(bindgen_helpers::EnumVariation::Rust {
             non_exhaustive: false,
         })
+        .parse_callbacks(Box::new(CloneDerive))
         .parse_callbacks(Box::new(renamer))
         .parse_callbacks(Box::new(CPrefix))
         .generate()

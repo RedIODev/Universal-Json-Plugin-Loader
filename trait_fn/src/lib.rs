@@ -86,17 +86,17 @@ fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     let [sig_func] = find_func_by_attr(item.items.iter_mut(), &parse_quote!(#[sig]))
             .collect_array()
             .map_err(annotation_error("sig"))?;
-    let sig_fn_type = sig_to_fp(sig_func.sig.clone())?;
-    let sig_fp_getter = sig_getter(sig_func, &sig_fn_type)?;
-    let sig_fp_type = create_type(trait_vis, trait_name, "SafeFP", &sig_func.sig.generics, &sig_fn_type);
+    let sig_function_type = sig_to_fp(sig_func.sig.clone())?;
+    let sig_fp_getter = sig_getter(sig_func, &sig_function_type);
+    let sig_fp_type = create_type(trait_vis, trait_name, "SafeFP", &sig_func.sig.generics, &sig_function_type);
 
     //adapter
     let [adapter_func] = find_func_by_attr(item.items.iter_mut(), &parse_quote!(#[adapter]))
             .collect_array()
             .map_err(annotation_error("adapter"))?;
-    let adapter_fn_type = sig_to_fp(adapter_func.sig.clone())?;
-    let adapter_fp_getter = adapter_getter(adapter_func, &adapter_fn_type)?;
-    let adapter_fp_type = create_type(trait_vis, trait_name, "UnsafeFP", &adapter_func.sig.generics, &adapter_fn_type);
+    let adapter_function_type = sig_to_fp(adapter_func.sig.clone())?;
+    let adapter_fp_getter = adapter_getter(adapter_func, &adapter_function_type);
+    let adapter_fp_type = create_type(trait_vis, trait_name, "UnsafeFP", &adapter_func.sig.generics, &adapter_function_type);
 
     //fp_adapter
     
@@ -120,18 +120,18 @@ fn fn_trait_result(mut item: ItemTrait) -> Result<TokenStream, TokenStream> {
     }.into())
 }
 
-fn sig_getter(sig_func: &TraitItemFn, sig_fn_type: &TypeBareFn) -> Result<TraitItem, TokenStream> {
+fn sig_getter(sig_func: &TraitItemFn, sig_fn_type: &TypeBareFn) -> TraitItem {
     let sig_generics = &sig_func.sig.generics;
     let sig_func_name = &sig_func.sig.ident;
     let sig_getter_name = Ident::new(&format!("{}_fp", sig_func.sig.ident), Span::call_site().into());
-    Ok(parse_quote! {
+    parse_quote! {
         fn #sig_getter_name #sig_generics () -> #sig_fn_type {
             Self:: #sig_func_name
         }
-    })
+    }
 }
 
-fn adapter_getter(adapter_func: &TraitItemFn, adapter_fn_type: &TypeBareFn) -> Result<TraitItem, TokenStream> {
+fn adapter_getter(adapter_func: &TraitItemFn, adapter_fn_type: &TypeBareFn) ->TraitItem {
     let adapter_generics = &adapter_func.sig.generics;
     let mut call_site_generics = adapter_generics.clone();
     let adapter_func_name = &adapter_func.sig.ident;
@@ -142,17 +142,17 @@ fn adapter_getter(adapter_func: &TraitItemFn, adapter_fn_type: &TypeBareFn) -> R
         t.default = None;
     });
     let call_site_generics = call_site_generics.params;
-    Ok(parse_quote! {
+    parse_quote! {
         fn #adapter_getter_name #adapter_generics () -> #adapter_fn_type {
             Self:: #adapter_func_name ::<#call_site_generics>
         }
-    })
+    }
 }
 
 fn fp_adapter_trait(fp_adapter: &TraitItemFn, trait_name: &Ident, trait_vis: &Visibility) -> Result<(ItemTrait, ItemImpl), TokenStream> {
     
     let fp_adapter_name = &fp_adapter.sig.ident;
-    let fp_adapter_trait_name = Ident::new(&format!("{}FPAdapter", trait_name), Span::call_site().into());
+    let fp_adapter_trait_name = Ident::new(&format!("{trait_name}FPAdapter"), Span::call_site().into());
     let fp_adapter_generics = &fp_adapter.sig.generics;
     let fp_adapter_return_type = &fp_adapter.sig.output;
 
@@ -188,7 +188,7 @@ fn find_func_by_attr<'a>(items: impl Iterator<Item= &'a mut TraitItem>, attr:&At
 
 trait ArrayIter: Iterator {
     fn collect_array<const N: usize>(self) -> Result<[Self::Item;N], ArrayBoundsError> where Self: Sized{
-        let collector = ArrayCollector::from_iter(self);
+        let collector: ArrayCollector<_,_> = self.collect();
         collector.0
     }
 }
@@ -241,7 +241,7 @@ impl Display for ArrayBoundsError {
 }
 
 fn annotation_error(annotation:&str) -> impl Fn(ArrayBoundsError) -> TokenStream {
-    move |e| new_error(format!("Invalid number of #[{}] annotated elements. {}", annotation, e))
+    move |e| new_error(format!("Invalid number of #[{annotation}] annotated elements. {e}"))
 }
 
 
@@ -317,7 +317,7 @@ fn annotation_error(annotation:&str) -> impl Fn(ArrayBoundsError) -> TokenStream
 // }
 
 fn create_type(vis: &Visibility, trait_name: &Ident, suffix:&str,  generics: &Generics, fp_type: &TypeBareFn) -> ItemType {
-    let name = format!("{}{}", trait_name, suffix);
+    let name = format!("{trait_name}{suffix}");
     let ident = Ident::new(&name, Span::call_site().into());
     parse_quote! { #[allow(type_alias_bounds)]#vis type #ident #generics = #fp_type; }
 

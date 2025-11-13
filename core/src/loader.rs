@@ -58,8 +58,6 @@ impl Loader {
         if &*plugin.name == "core" {
             return Err(LoaderError::InvalidName);
         }
-        let plugin_name = plugin.name.clone();
-        let plugin_version = plugin.version.clone();
         let init_handler = plugin_info.handler();
 
         {
@@ -93,9 +91,11 @@ impl Loader {
                 .plugins()
                 .rcu(|map| map.update(plugin_id, plugin.clone()));
         } // Mutex end
+
+        #[cfg(debug_assertions)]
         println!(
             "Loaded Plugin \"{}\" version: {}",
-            plugin_name, plugin_version
+            plugin.name, plugin.version
         );
         Ok(())
     }

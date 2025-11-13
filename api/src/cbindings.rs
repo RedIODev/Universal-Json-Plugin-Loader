@@ -538,7 +538,7 @@ const _: () = {
         [::std::mem::offset_of!(CApplicationContext, endpointRequestService) - 56usize];
 };
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CApiVersion {
     pub major: Cu16,
     pub feature: Cu8,

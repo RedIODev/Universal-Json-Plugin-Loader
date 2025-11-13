@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+
 
 use arc_swap::ArcSwapOption;
 use derive_more::Display;
@@ -22,7 +24,7 @@ pub fn main() -> Result<(), MainError> {
         match Runtime::park()? {
             PowerState::Shutdown => break,
             PowerState::Restart => Runtime::restart()?,
-            PowerState::Cancel | PowerState::Running => continue,
+            PowerState::Cancel | PowerState::Running => {},
         }
     }
     drop(gov_lifetime); //explicit drop to ensure the GGL lifetime is exactly the lifetime of main.

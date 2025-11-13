@@ -37,7 +37,7 @@ struct PowWrap {
 
 #[plugin_main]
 fn main(uuid: Uuid) -> PluginInfo {
-    println!("Main: Test from plugin! {:?}", uuid);
+    println!("Main: Test from plugin! {uuid:?}");
     UUID.store(Some(Arc::new(uuid)));
     PluginInfo::new::<InitTest, _, _, _>("ExamplePlugin", "0.0.2", [], API_VERSION)
 }
@@ -47,9 +47,6 @@ static UUID: ArcSwapOption<Uuid> = ArcSwapOption::const_empty();
 
 #[trait_fn(EventHandlerFunc for PowerListener)]
 fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
-    if let Err(e) = power_listener(context, args) {
-        println!("Error: {}", e);
-    }
     fn power_listener<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
         context: F,
         args: S,
@@ -62,13 +59,13 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, 
         }
         Ok(())
     }
+    if let Err(e) = power_listener(context, args) {
+        println!("Error: {e}");
+    }
 }
 
 #[trait_fn(EventHandlerFunc for InitTest)]
 fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
-    if let Err(e) = init_test(context, args) {
-        println!("Error: {}", e);
-    }
     fn init_test<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
         context: F,
         args: S,
@@ -95,5 +92,8 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, 
         println!("plugin exit due to program exit or restart");
         POWER.store(MyPow::None, Ordering::Relaxed);
         Ok(())
+    }
+    if let Err(e) = init_test(context, args) {
+        println!("Error: {e}");
     }
 }

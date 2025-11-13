@@ -114,7 +114,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     }
 
     if let Some(delay) = args.delay {
-        std::thread::sleep(Duration::from_millis(delay as u64));
+        std::thread::sleep(Duration::from_millis(delay.into()));
     }
 
     if let PowerState::Cancel = get_gov().err_core()?.runtime().check_and_reset_power() {

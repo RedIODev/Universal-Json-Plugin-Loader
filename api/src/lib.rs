@@ -1,10 +1,21 @@
+#![allow(clippy::missing_errors_doc)]
+
+
 /// cbindgen:ignore
 #[cfg(not(feature = "unsafe"))]
-#[allow(non_camel_case_types, non_upper_case_globals, non_snake_case, unused, unsafe_op_in_unsafe_fn)]
+#[allow(non_camel_case_types, non_upper_case_globals,
+    non_snake_case, unused, unsafe_op_in_unsafe_fn, 
+    clippy::missing_safety_doc, clippy::unreadable_literal, 
+    clippy::pub_underscore_fields, clippy::transmute_ptr_to_ptr)]
 mod cbindings;
 
+/// cbindgen:ignore
 #[cfg(feature = "unsafe")]
-#[allow(non_camel_case_types, non_upper_case_globals, non_snake_case, unused, unsafe_op_in_unsafe_fn, clippy::missing_safety_doc)]
+#[allow(non_camel_case_types, non_upper_case_globals,
+    non_snake_case, unused, unsafe_op_in_unsafe_fn, 
+    clippy::missing_safety_doc, clippy::unreadable_literal, 
+    clippy::pub_underscore_fields, clippy::transmute_ptr_to_ptr,
+    clippy::must_use_candidate)]
 pub mod cbindings;
 
 #[cfg(feature = "safe")]

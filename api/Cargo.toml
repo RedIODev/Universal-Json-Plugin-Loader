@@ -22,3 +22,7 @@ crate-type = ["staticlib", "lib"]
 default = []
 unsafe = []
 safe = ["dep:uuid", "dep:trait_fn"]
+
+[lints.clippy]
+pedantic = "warn"
+

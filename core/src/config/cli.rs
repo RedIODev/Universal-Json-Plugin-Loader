@@ -89,7 +89,7 @@ impl PluginOption {
     ) -> HashMap<Box<str>, Table> {
         options
             .into_iter()
-            .fold(Default::default(), |mut map, option| {
+            .fold(HashMap::default(), |mut map, option| {
                 map.entry(option.plugin_name.clone())
                     .or_default()
                     .insert(option.key.to_string(), option.value.clone());
