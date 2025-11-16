@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    error::Error,
     io::{Write, stdin, stdout},
     sync::{Arc, atomic::Ordering},
     thread,
@@ -10,7 +9,7 @@ use std::{
 use arc_swap::ArcSwapOption;
 use atomic_enum::atomic_enum;
 use finance_together_api::{
-    API_VERSION, ApplicationContext, PluginInfo,
+    API_VERSION, ApplicationContext, ErrorMapper, PluginInfo, ServiceError,
     pointer_traits::{EventHandlerFunc, plugin_main, trait_fn},
 };
 use serde::Deserialize;
@@ -46,54 +45,45 @@ static POWER: AtomicMyPow = AtomicMyPow::new(MyPow::None);
 static UUID: ArcSwapOption<Uuid> = ArcSwapOption::const_empty();
 
 #[trait_fn(EventHandlerFunc for PowerListener)]
-fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
-    fn power_listener<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
-        context: F,
-        args: S,
-    ) -> Result<(), Box<dyn Error>> {
-        let args: PowWrap = serde_json::from_str(&args.into())?;
-        POWER.store(args.command, Ordering::Relaxed);
-        if args.delay.is_some() {
-            context().endpoint_request("core:power", json!({"command": "cancel"}).to_string())?;
-            println!("canceled shutdown");
-        }
-        Ok(())
+fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
+    context: F,
+    args: S,
+) -> Result<(), ServiceError> {
+    let args: PowWrap = serde_json::from_str(&args.into()).error(ServiceError::InvalidString)?;
+    POWER.store(args.command, Ordering::Relaxed);
+    if args.delay.is_some() {
+        context().endpoint_request("core:power", json!({"command": "cancel"}).to_string())?;
+        println!("canceled shutdown");
     }
-    if let Err(e) = power_listener(context, args) {
-        println!("Error: {e}");
-    }
+    Ok(())
 }
 
 #[trait_fn(EventHandlerFunc for InitTest)]
-fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) {
-    fn init_test<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
-        context: F,
-        args: S,
-    ) -> Result<(), Box<dyn Error>> {
+fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) -> Result<(), ServiceError> {
+    
         println!("Plugin: Init: Test from plugin! Args:{}", args.into());
-        let uuid = **UUID.load().as_ref().ok_or("Uuid None")?;
+        let uuid = **UUID.load().as_ref().error(ServiceError::PluginInternalError)?;
         context().register_event_handler(PowerListener, uuid, "core:power")?;
         println!("before while loop with {:?}", POWER.load(Ordering::Relaxed));
         while POWER.load(Ordering::Relaxed) < MyPow::Shutdown {
             let mut input = String::new();
             print!(">");
-            stdout().flush()?;
-            stdin().read_line(&mut input)?;
+            stdout().flush().error(ServiceError::PluginInternalError)?;
+            stdin().read_line(&mut input).error(ServiceError::PluginInternalError)?;
             println!("after read");
             let args = if input.trim() == "shutdown20000" {
                 json!({"command": "shutdown", "delay": 20000}).to_string()
             } else {
                 json!({"command": input.trim()}).to_string()
             };
-            let response = context().endpoint_request("core:power", args)?;
-            println!("Response:{response}");
+            match context().endpoint_request("core:power", args) {
+                Ok(response) => println!("Response:{response}"),
+                Err(err) => println!("RequestError:{err}")
+            }
             thread::sleep(Duration::from_secs(1));
         }
         println!("plugin exit due to program exit or restart");
         POWER.store(MyPow::None, Ordering::Relaxed);
         Ok(())
-    }
-    if let Err(e) = init_test(context, args) {
-        println!("Error: {e}");
-    }
+   
 }

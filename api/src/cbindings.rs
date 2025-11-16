@@ -341,16 +341,17 @@ const _: () = {
 pub enum CServiceError {
     Success = 0,
     CoreInternalError = 1,
-    NullFunctionPointer = 2,
-    InvalidString = 3,
-    InvalidJson = 4,
-    InvalidSchema = 5,
-    InvalidApi = 6,
-    NotFound = 7,
-    Unauthorized = 8,
-    Duplicate = 9,
-    PluginUninit = 10,
-    ShutingDown = 11,
+    PluginInternalError = 2,
+    NullFunctionPointer = 3,
+    InvalidString = 4,
+    InvalidJson = 5,
+    InvalidSchema = 6,
+    InvalidApi = 7,
+    NotFound = 8,
+    Unauthorized = 9,
+    Duplicate = 10,
+    PluginUninit = 11,
+    ShutingDown = 12,
 }
 pub type CStringDealloc =
     ::std::option::Option<unsafe extern "C" fn(arg1: *const Cc8, arg2: Cusize)>;

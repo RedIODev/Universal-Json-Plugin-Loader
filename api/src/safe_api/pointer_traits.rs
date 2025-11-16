@@ -42,7 +42,7 @@ pub trait ContextSupplier {
 #[fn_trait]
 pub trait EventHandlerFunc {
     #[sig]
-    fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S);
+    fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) -> Result<(), ServiceError>;
 
     ///
     ///
@@ -52,11 +52,14 @@ pub trait EventHandlerFunc {
     ///
     #[adapter]
     unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
-        let context = context
-            .expect("Null function pointers are invalid!")
-            .to_safe_fp();
-        let context = || context().expect("ApplicationContext must only contain valid fp!");
-        Self::handle(context, args.as_str().expect("Not a Valid UTF8-String!"));
+        fn adapter_inner<T:EventHandlerFunc + ?Sized>(context: CContextSupplier, args: &CString) -> Result<(), ServiceError> {
+            let context = context.error(ServiceError::NullFunctionPointer)?
+                .to_safe_fp();
+            let context = || context().error(ServiceError::CoreInternalError).expect("Invalid Application Context");
+            T::handle(context, args.as_str().error(ServiceError::InvalidString)?)
+        }
+
+        adapter_inner::<Self>(context, &args).expect("Handler encountered an error!");
     }
 
     #[fp_adapter]

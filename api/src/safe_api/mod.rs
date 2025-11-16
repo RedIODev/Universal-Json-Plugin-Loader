@@ -65,30 +65,16 @@ where
             let error = colorizer.italic(format!("{e:?}"));
             println!("{line}\n{error}");
         }
-        self.ok().error(error)
+        self.ok().ok_or(error)
     }
 }
-// pub trait OkOrCoreInternalError<T> {
-//     fn ok_or_service(self, ) -> Result<T, ServiceError>;
-// }
-
-// impl<T> OkOrCoreInternalError<T> for Option<T> {
-//     fn ok_or_service(self) -> Result<T, ServiceError> {
-//         self.ok_or(ServiceError::CoreInternalError)
-//     }
-// }
-
-// impl<T, E> OkOrCoreInternalError<T> for Result<T, E> {
-//     fn ok_or_service(self) -> Result<T, ServiceError> {
-//         self.map_err(|_| ServiceError::CoreInternalError)
-//     }
-// }
 
 impl CServiceError {
     pub const fn to_rust(self) -> Result<(), ServiceError> {
         Err(match self {
             CServiceError::Success => return Ok(()),
             CServiceError::CoreInternalError => ServiceError::CoreInternalError,
+            CServiceError::PluginInternalError => ServiceError::PluginInternalError,
             CServiceError::NullFunctionPointer => ServiceError::NullFunctionPointer,
             CServiceError::InvalidString => ServiceError::InvalidString,
             CServiceError::InvalidJson => ServiceError::InvalidJson,
@@ -108,6 +94,7 @@ impl ServiceError {
     pub const fn to_c(self) -> CServiceError {
         match self {
             ServiceError::CoreInternalError => CServiceError::CoreInternalError,
+            ServiceError::PluginInternalError => CServiceError::PluginInternalError,
             ServiceError::NullFunctionPointer => CServiceError::NullFunctionPointer,
             ServiceError::InvalidString => CServiceError::InvalidString,
             ServiceError::InvalidJson => CServiceError::InvalidJson,
@@ -591,6 +578,7 @@ impl From<CPluginInfo> for Result<PluginInfo, ServiceError> {
 #[derive(Debug, Clone, Copy, Display, Error)]
 pub enum ServiceError {
     CoreInternalError,
+    PluginInternalError,
     NullFunctionPointer,
     InvalidString,
     InvalidJson,
