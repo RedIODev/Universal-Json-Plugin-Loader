@@ -4,9 +4,7 @@
     "type": "object",
 
     "properties": {
-        "value": {
-            "type": "object"
-        }
+        "type": "object"
     },
     "required": []
 }
