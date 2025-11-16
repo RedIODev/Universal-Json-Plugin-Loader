@@ -9,7 +9,6 @@ use uuid::Uuid;
 
 pub mod pointer_traits;
 
-
 use crate::cbindings::CApiVersion;
 use crate::cbindings::{CApplicationContext, CList_String, CPluginInfo};
 use crate::cbindings::{CEndpointResponse, CEventHandler, CServiceError, CString};
@@ -29,108 +28,44 @@ use crate::safe_api::pointer_traits::{
 };
 
 pub trait ErrorMapper<T> {
-    fn err_core(self) -> Result<T, ServiceError>;
-    fn err_null_fp(self) -> Result<T, ServiceError>;
-    fn err_invalid_str(self) -> Result<T, ServiceError>;
-    fn err_invalid_json(self) -> Result<T, ServiceError>;
-    fn err_invalid_schema(self) -> Result<T, ServiceError>;
-    fn err_invalid_api(self) -> Result<T, ServiceError>;
-    fn err_not_found(self) -> Result<T, ServiceError>;
-    fn err_unauthorized(self) -> Result<T, ServiceError>;
-    fn err_duplicate(self) -> Result<T, ServiceError>;
-    fn err_plugin_uninit(self) -> Result<T, ServiceError>;
-    fn err_shutting_down(self) -> Result<T, ServiceError>;
+    fn error(self, error: ServiceError) -> Result<T, ServiceError>;
 }
 
 impl<T> ErrorMapper<T> for Option<T> {
-    fn err_core(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::CoreInternalError)
-    }
+    #[inline(always)]
+    #[allow(clippy::inline_always, clippy::uninlined_format_args)]
+    fn error(self, error: ServiceError) -> Result<T, ServiceError> {
+        #[cfg(debug_assertions)]
+        if self.is_none() {
+            use cli_colors::Colorizer;
 
-    fn err_null_fp(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::NullFunctionPointer)
-    }
-
-    fn err_invalid_str(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::InvalidString)
-    }
-
-    fn err_invalid_json(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::InvalidJson)
-    }
-
-    fn err_invalid_schema(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::InvalidSchema)
-    }
-
-    fn err_invalid_api(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::InvalidApi)
-    }
-
-    fn err_not_found(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::NotFound)
-    }
-
-    fn err_unauthorized(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::Unauthorized)
-    }
-
-    fn err_duplicate(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::Duplicate)
-    }
-
-    fn err_plugin_uninit(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::PluginUninit)
-    }
-
-    fn err_shutting_down(self) -> Result<T, ServiceError> {
-        self.ok_or(ServiceError::ShutingDown)
+            let colorizer = Colorizer::new();
+            let line = colorizer.blue(format!("[Debug]{error}: Option<{}> is None.", std::any::type_name::<T>()));
+            println!("{}", line);
+        }
+        self.ok_or(error)
     }
 }
 
-impl<T, E> ErrorMapper<T> for Result<T, E> {
-    fn err_core(self) -> Result<T, ServiceError> {
-        self.ok().err_core()
-    }
+impl<T, E> ErrorMapper<T> for Result<T, E>
+where
+    E: std::fmt::Debug,
+{
+    #[inline(always)]
+    #[allow(clippy::inline_always, clippy::uninlined_format_args)]
+    fn error(self, error: ServiceError) -> Result<T, ServiceError> {
+        #[cfg(debug_assertions)]
+        if let Err(ref e) = self {
+            use cli_colors::Colorizer;
 
-    fn err_null_fp(self) -> Result<T, ServiceError> {
-        self.ok().err_null_fp()
-    }
-
-    fn err_invalid_str(self) -> Result<T, ServiceError> {
-        self.ok().err_invalid_str()
-    }
-
-    fn err_invalid_json(self) -> Result<T, ServiceError> {
-        self.ok().err_invalid_json()
-    }
-
-    fn err_invalid_schema(self) -> Result<T, ServiceError> {
-        self.ok().err_invalid_schema()
-    }
-
-    fn err_invalid_api(self) -> Result<T, ServiceError> {
-        self.ok().err_invalid_api()
-    }
-
-    fn err_not_found(self) -> Result<T, ServiceError> {
-        self.ok().err_not_found()
-    }
-
-    fn err_unauthorized(self) -> Result<T, ServiceError> {
-        self.ok().err_unauthorized()
-    }
-
-    fn err_duplicate(self) -> Result<T, ServiceError> {
-        self.ok().err_duplicate()
-    }
-
-    fn err_plugin_uninit(self) -> Result<T, ServiceError> {
-        self.ok().err_plugin_uninit()
-    }
-
-    fn err_shutting_down(self) -> Result<T, ServiceError> {
-        self.ok().err_shutting_down()
+            let colorizer = Colorizer::new();
+            let line = colorizer.blue(format!("[Debug]{error}: Result<{}, {}> is Err:",
+                    std::any::type_name::<T>(),
+                    std::any::type_name::<E>()));
+            let error = colorizer.italic(format!("{e:?}"));
+            println!("{line}\n{error}");
+        }
+        self.ok().error(error)
     }
 }
 // pub trait OkOrCoreInternalError<T> {
@@ -220,11 +155,10 @@ pub struct EventHandler {
     handler_id: Uuid,
 }
 
-
 impl CEventHandler {
     pub fn to_rust(self) -> Result<EventHandler, ServiceError> {
         self.error.to_rust()?;
-        let func = self.function.err_null_fp()?;
+        let func = self.function.error(ServiceError::NullFunctionPointer)?;
 
         Ok(EventHandler {
             function: func,
@@ -392,15 +326,16 @@ pub struct ApplicationContext {
 
 impl CApplicationContext {
     pub fn to_rust(self) -> Result<ApplicationContext, ServiceError> {
+        use ServiceError::NullFunctionPointer;
         Ok(ApplicationContext {
-            handler_register: self.handlerRegisterService.err_null_fp()?,
-            handler_unregister: self.handlerUnregisterService.err_null_fp()?,
-            event_register: self.eventRegisterService.err_null_fp()?,
-            event_unregister: self.eventUnregisterService.err_null_fp()?,
-            event_trigger: self.eventTriggerService.err_null_fp()?,
-            endpoint_register: self.endpointRegisterService.err_null_fp()?,
-            endpoint_unregister: self.endpointUnregisterService.err_null_fp()?,
-            endpoint_request: self.endpointRequestService.err_null_fp()?,
+            handler_register: self.handlerRegisterService.error(NullFunctionPointer)?,
+            handler_unregister: self.handlerUnregisterService.error(NullFunctionPointer)?,
+            event_register: self.eventRegisterService.error(NullFunctionPointer)?,
+            event_unregister: self.eventUnregisterService.error(NullFunctionPointer)?,
+            event_trigger: self.eventTriggerService.error(NullFunctionPointer)?,
+            endpoint_register: self.endpointRegisterService.error(NullFunctionPointer)?,
+            endpoint_unregister: self.endpointUnregisterService.error(NullFunctionPointer)?,
+            endpoint_request: self.endpointRequestService.error(NullFunctionPointer)?,
         })
     }
 }
@@ -565,7 +500,7 @@ impl CPluginInfo {
             name: self.name,
             version: self.version,
             dependencies: self.dependencies,
-            init_handler: self.initHandler.err_null_fp()?,
+            init_handler: self.initHandler.error(ServiceError::NullFunctionPointer)?,
             api_version: self.apiVersion,
         })
     }

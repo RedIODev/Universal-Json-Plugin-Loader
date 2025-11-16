@@ -22,6 +22,8 @@ use crate::{
     util::LockedMap,
 };
 
+use ServiceError::CoreInternalError;
+
 pub type Endpoints = LockedMap<Box<str>, Endpoint>;
 
 #[derive(Clone)]
@@ -81,12 +83,12 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     context_supplier: F,
     args: S,
 ) -> Result<EndpointResponse, ServiceError> {
-    let args = serde_json::from_str::<PowerArgs>(&args.into()).err_invalid_json()?;
-    match get_gov().err_core()?.runtime().check_power() {
+    let args = serde_json::from_str::<PowerArgs>(&args.into()).error(ServiceError::InvalidJson)?;
+    match get_gov().error(CoreInternalError)?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
         _ => {}
     }
-    let core_id = get_gov().err_core()?.runtime().core_id();
+    let core_id = get_gov().error(CoreInternalError)?.runtime().core_id();
     let context = context_supplier();
     let utc_now = Utc::now();
     let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
@@ -117,7 +119,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
         std::thread::sleep(Duration::from_millis(delay.into()));
     }
 
-    if let PowerState::Cancel = get_gov().err_core()?.runtime().check_and_reset_power() {
+    if let PowerState::Cancel = get_gov().error(CoreInternalError)?.runtime().check_and_reset_power() {
         return Ok(EndpointResponse::new(json!({"canceled": true}).to_string()));
     }
 
@@ -127,7 +129,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
         PowerCommand::Cancel => PowerState::Cancel,
     };
 
-    get_gov().err_core()?.runtime().set_power(power_state);
+    get_gov().error(CoreInternalError)?.runtime().set_power(power_state);
     Ok(EndpointResponse::new(json!({}).to_string()))
 }
 
@@ -142,17 +144,17 @@ pub(super) fn register<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     if endpoint_name.as_ref().contains(':') {
         return Err(ServiceError::InvalidString);
     }
-    let argument_schema_json = serde_json::from_str(args_schema.as_ref()).err_invalid_json()?;
+    let argument_schema_json = serde_json::from_str(args_schema.as_ref()).error(ServiceError::InvalidJson)?;
     let argument_validator =
-        jsonschema::validator_for(&argument_schema_json).err_invalid_schema()?;
-    let response_schema_json = serde_json::from_str(response_schema.as_ref()).err_invalid_json()?;
+        jsonschema::validator_for(&argument_schema_json).error(ServiceError::InvalidSchema)?;
+    let response_schema_json = serde_json::from_str(response_schema.as_ref()).error(ServiceError::InvalidJson)?;
     let response_validator =
-        jsonschema::validator_for(&response_schema_json).err_invalid_schema()?;
+        jsonschema::validator_for(&response_schema_json).error(ServiceError::InvalidSchema)?;
     let endpoint = Endpoint::new(handler, argument_validator, response_validator, plugin_id);
     let full_name = {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let plugins = gov.loader().plugins().load();
-        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).err_not_found()?;
+        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).error(ServiceError::NotFound)?;
         if gov.endpoints().load().contains_key(endpoint_name.as_ref()) {
             return Err(ServiceError::Duplicate);
         }
@@ -162,7 +164,7 @@ pub(super) fn register<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
         full_name
     };
 
-    let core_id = get_gov().err_core()?.runtime().core_id();
+    let core_id = get_gov().error(CoreInternalError)?.runtime().core_id();
     EventTrigger::trigger(
         core_id,
         "core:endpoint",
@@ -182,11 +184,11 @@ pub(super) fn unregister<S: AsRef<str>>(
     endpoint_name: S,
 ) -> Result<(), ServiceError> {
     {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let endpoints = gov.endpoints().load();
         let endpoint = endpoints
             .get(endpoint_name.as_ref())
-            .ok_or(ServiceError::NotFound)?;
+            .error(ServiceError::NotFound)?;
         if endpoint.plugin_id != plugin_id {
             return Err(ServiceError::Unauthorized);
         }
@@ -204,34 +206,34 @@ pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
     args: T,
 ) -> Result<EndpointResponse, ServiceError> {
     let args = args.into();
-    let arguments_json = serde_json::from_str(args.as_ref()).err_invalid_json()?;
+    let arguments_json = serde_json::from_str(args.as_ref()).error(ServiceError::InvalidJson)?;
     let handler = {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let endpoints = gov.endpoints().load();
         let endpoint = endpoints
             .get(endpoint_name.as_ref())
-            .ok_or(ServiceError::NotFound)?;
+            .error(ServiceError::NotFound)?;
         endpoint
             .argument_validator
             .validate(&arguments_json)
-            .err_invalid_api()?;
+            .error(ServiceError::InvalidApi)?;
         endpoint.request_handler.to_safe_fp()
     };
     let response = handler(ContextSupplierImpl, args)?;
 
     let response_json =
-        serde_json::from_str(response.response().err_invalid_str()?).err_invalid_json()?;
+        serde_json::from_str(response.response().error(ServiceError::InvalidString)?).error(ServiceError::InvalidJson)?;
 
     {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let endpoints = gov.endpoints().load();
         let endpoint = endpoints
             .get(endpoint_name.as_ref())
-            .ok_or(ServiceError::NotFound)?;
+            .error(ServiceError::NotFound)?;
         endpoint
             .response_validator
             .validate(&response_json)
-            .err_invalid_api()?;
+            .error(ServiceError::InvalidApi)?;
     }
     Ok(response)
 }

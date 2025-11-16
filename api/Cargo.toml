@@ -9,6 +9,7 @@ derive_more = { version = "2.0.1", features = ["display"] }
 derive-enum-from-into = "0.2.1"
 uuid = { version = "1.18.1", optional = true }
 trait_fn = { path = "../trait_fn", optional = true }
+cli-colors = "1.0.0"
 
 [build-dependencies]
 bindgen_helpers = "0.5.1"

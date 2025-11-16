@@ -21,11 +21,11 @@ pub trait ContextSupplier {
     fn supply() -> ApplicationContext;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`ContextSupplier::supply`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter() -> CApplicationContext {
         Self::supply().to_c()
@@ -45,11 +45,11 @@ pub trait EventHandlerFunc {
     fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S);
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EventHandlerFunc::handle`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
         let context = context
@@ -77,22 +77,22 @@ pub trait EventHandlerRegisterService {
     ) -> Result<EventHandler, ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EventHandlerRegisterService::register`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(
         handler: CEventHandlerFP,
         plugin_id: CUuid,
         event_name: CString,
     ) -> CEventHandler {
-        let handler = match handler.err_null_fp() {
+        let handler = match handler.error(ServiceError::NullFunctionPointer) {
             Ok(handler) => handler,
             Err(e) => return e.into(),
         };
-        let event_name = match event_name.as_str().err_invalid_str() {
+        let event_name = match event_name.as_str().error(ServiceError::InvalidString) {
             Ok(event_name) => event_name,
             Err(e) => return e.into(),
         };
@@ -119,18 +119,18 @@ pub trait EventHandlerUnregisterService {
     ) -> Result<(), ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EventHandlerUnregisterService::unregister`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(
         handler_id: CUuid,
         plugin_id: CUuid,
         event_name: CString,
     ) -> CServiceError {
-        let event_name = match event_name.as_str().err_invalid_str() {
+        let event_name = match event_name.as_str().error(ServiceError::InvalidString) {
             Ok(event_name) => event_name,
             Err(e) => return e.into(),
         };
@@ -157,22 +157,22 @@ pub trait EventRegisterService {
     ) -> Result<(), ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EventRegisterService::register`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(
         event_schema: CString,
         plugin_id: CUuid,
         event_name: CString,
     ) -> CServiceError {
-        let event_schema = match event_schema.as_str().err_invalid_str() {
+        let event_schema = match event_schema.as_str().error(ServiceError::InvalidString) {
             Ok(event_schema) => event_schema,
             Err(e) => return e.into(),
         };
-        let event_name = match event_name.as_str().err_invalid_str() {
+        let event_name = match event_name.as_str().error(ServiceError::InvalidString) {
             Ok(event_name) => event_name,
             Err(e) => return e.into(),
         };
@@ -195,14 +195,14 @@ pub trait EventUnregisterService {
     fn unregister<S: AsRef<str>>(plugin_id: Uuid, event_name: S) -> Result<(), ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EventUnregisterService::unregister`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(plugin_id: CUuid, event_name: CString) -> CServiceError {
-        let event_name = match event_name.as_str().err_invalid_str() {
+        let event_name = match event_name.as_str().error(ServiceError::InvalidString) {
             Ok(event_name) => event_name,
             Err(e) => return e.into(),
         };
@@ -227,22 +227,22 @@ pub trait EventTriggerService {
     ) -> Result<(), ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EventTriggerService::trigger`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(
         plugin_id: CUuid,
         event_name: CString,
         args: CString,
     ) -> CServiceError {
-        let event_name = match event_name.as_str().err_invalid_str() {
+        let event_name = match event_name.as_str().error(ServiceError::InvalidString) {
             Ok(event_name) => event_name,
             Err(e) => return e.into(),
         };
-        let args = match args.as_str().err_invalid_str() {
+        let args = match args.as_str().error(ServiceError::InvalidString) {
             Ok(args) => args,
             Err(e) => return e.into(),
         };
@@ -268,21 +268,21 @@ pub trait RequestHandlerFunc {
     ) -> Result<EndpointResponse, ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`RequestHandlerFunc::handle`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(
         context_supplier: CContextSupplier,
         args: CString,
     ) -> CEndpointResponse {
-        let args = match args.as_str().err_invalid_str() {
+        let args = match args.as_str().error(ServiceError::InvalidString) {
             Ok(args) => args,
             Err(e) => return e.into(),
         };
-        let context = match context_supplier.err_null_fp() {
+        let context = match context_supplier.error(ServiceError::NullFunctionPointer) {
             Ok(context) => context,
             Err(e) => return e.into(),
         };
@@ -311,11 +311,11 @@ pub trait EndpointRegisterService {
     ) -> Result<(), ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EndpointRegisterService::register`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(
         args_schema: CString,
@@ -324,19 +324,19 @@ pub trait EndpointRegisterService {
         endpoint_name: CString,
         handler: Option<RequestHandlerFuncUnsafeFP>,
     ) -> CServiceError {
-        let args_schema = match args_schema.as_str().err_invalid_str() {
+        let args_schema = match args_schema.as_str().error(ServiceError::InvalidString) {
             Ok(args_schema) => args_schema,
             Err(e) => return e.into(),
         };
-        let response_schema = match response_schema.as_str().err_invalid_str() {
+        let response_schema = match response_schema.as_str().error(ServiceError::InvalidString) {
             Ok(response_schema) => response_schema,
             Err(e) => return e.into(),
         };
-        let endpoint_name = match endpoint_name.as_str().err_invalid_str() {
+        let endpoint_name = match endpoint_name.as_str().error(ServiceError::InvalidString) {
             Ok(endpoint_name) => endpoint_name,
             Err(e) => return e.into(),
         };
-        let handler = match handler.err_null_fp() {
+        let handler = match handler.error(ServiceError::NullFunctionPointer) {
             Ok(handler) => handler,
             Err(e) => return e.into(),
         };
@@ -372,16 +372,15 @@ pub trait EndpointUnregisterService {
     #[sig]
     fn unregister<S: AsRef<str>>(plugin_id: Uuid, endpoint_name: S) -> Result<(), ServiceError>;
 
-    
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EndpointUnregisterService::unregister`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(plugin_id: CUuid, endpoint_name: CString) -> CServiceError {
-        let endpoint_name = match endpoint_name.as_str().err_invalid_str() {
+        let endpoint_name = match endpoint_name.as_str().error(ServiceError::InvalidString) {
             Ok(endpoint_name) => endpoint_name,
             Err(e) => return e.into(),
         };
@@ -407,18 +406,18 @@ pub trait EndpointRequestService {
     ) -> Result<EndpointResponse, ServiceError>;
 
     ///
-    /// 
+    ///
     /// # Safety
     /// This adapter method is designed to be called from C code.
     /// It is safe to call with valid arguments and does the same as [`EndpointRequestService::request`].
-    /// 
+    ///
     #[adapter]
     unsafe extern "C" fn adapter(endpoint_name: CString, args: CString) -> CEndpointResponse {
-        let endpoint_name = match endpoint_name.as_str().err_invalid_str() {
+        let endpoint_name = match endpoint_name.as_str().error(ServiceError::InvalidString) {
             Ok(endpoint_name) => endpoint_name,
             Err(e) => return e.into(),
         };
-        let args = match args.as_str().err_invalid_str() {
+        let args = match args.as_str().error(ServiceError::InvalidString) {
             Ok(args) => args,
             Err(e) => return e.into(),
         };

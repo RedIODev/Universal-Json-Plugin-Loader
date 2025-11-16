@@ -21,6 +21,8 @@ use crate::{
     util::{ArcMapExt, LockedMap, TrueOrErr},
 };
 
+use ServiceError::CoreInternalError;
+
 pub type Events = LockedMap<Box<str>, Event>;
 
 #[derive(Clone)]
@@ -109,7 +111,7 @@ pub(super) fn register<T: AsRef<str>>(
     let stored_handler = StoredEventHandler::new(event_handler, plugin_id);
 
     get_gov()
-        .err_core()?
+        .error(CoreInternalError)?
         .events()
         .rcu_alter(event_name.as_ref(), |event| {
             event
@@ -128,7 +130,7 @@ pub(super) fn unregister<S: AsRef<str>>(
     event_name: S,
 ) -> Result<(), ServiceError> {
     get_gov()
-        .err_core()?
+        .error(CoreInternalError)?
         .events()
         .rcu_alter(event_name.as_ref(), |event| {
             let handler = event
@@ -155,15 +157,15 @@ pub(super) fn register<S: AsRef<str>, T: AsRef<str>>(
     if event_name.as_ref().contains(':') {
         return Err(ServiceError::InvalidString);
     }
-    let argument_schema_json = serde_json::from_str(argument_schema.as_ref()).err_invalid_json()?;
+    let argument_schema_json = serde_json::from_str(argument_schema.as_ref()).error(ServiceError::InvalidJson)?;
 
     let argument_validator =
-        jsonschema::validator_for(&argument_schema_json).err_invalid_schema()?;
+        jsonschema::validator_for(&argument_schema_json).error(ServiceError::InvalidSchema)?;
     let event = Event::new(argument_validator, plugin_id);
     let full_name = {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let plugins = gov.loader().plugins().load();
-        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).err_not_found()?;
+        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).error(ServiceError::NotFound)?;
         if gov.events().load().contains_key(event_name.as_ref()) {
             return Err(ServiceError::Duplicate);
         }
@@ -173,7 +175,7 @@ pub(super) fn register<S: AsRef<str>, T: AsRef<str>>(
         full_name
     };
 
-    let core_id = get_gov().err_core()?.runtime().core_id();
+    let core_id = get_gov().error(CoreInternalError)?.runtime().core_id();
 
     EventTrigger::trigger(
         core_id,
@@ -192,11 +194,11 @@ pub(super) fn unregister<S: AsRef<str>>(
     event_name: S,
 ) -> Result<(), ServiceError> {
     {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let events = gov.events().load();
         let event = events
             .get(event_name.as_ref())
-            .ok_or(ServiceError::NotFound)?;
+            .error(ServiceError::NotFound)?;
         if event.plugin_id != plugin_id {
             return Err(ServiceError::Unauthorized);
         }
@@ -214,18 +216,18 @@ pub(super) fn trigger<S: AsRef<str>, T: AsRef<str>>(
     event_name: S,
     args: T,
 ) -> Result<(), ServiceError> {
-    match get_gov().err_core()?.runtime().check_power() {
+    match get_gov().error(CoreInternalError)?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
         _ => {}
     }
 
-    let event_arguments_json = serde_json::from_str(args.as_ref()).err_invalid_json()?;
+    let event_arguments_json = serde_json::from_str(args.as_ref()).error(ServiceError::InvalidJson)?;
     let funcs = {
-        let gov = get_gov().err_core()?;
+        let gov = get_gov().error(CoreInternalError)?;
         let events = gov.events().load();
         let event = events
             .get(event_name.as_ref())
-            .ok_or(ServiceError::NotFound)?;
+            .error(ServiceError::NotFound)?;
         if event.plugin_id != plugin_id {
             return Err(ServiceError::Unauthorized);
         }
@@ -233,7 +235,7 @@ pub(super) fn trigger<S: AsRef<str>, T: AsRef<str>>(
         event
             .argument_validator
             .validate(&event_arguments_json)
-            .err_invalid_api()?;
+            .error(ServiceError::InvalidApi)?;
         if event_name.as_ref() == "core:init" {
             let Some(funcs) = sort_handlers(event.handlers.iter(), &gov.loader().plugins().load())
             else {
@@ -244,7 +246,7 @@ pub(super) fn trigger<S: AsRef<str>, T: AsRef<str>>(
             event.handlers.iter().map(|h| h.handler).collect()
         }
     };
-    let executor = get_gov().err_core()?.runtime().event_pool.clone();
+    let executor = get_gov().error(CoreInternalError)?.runtime().event_pool.clone();
     let owned_args = args.as_ref().to_string();
     executor.execute(move || {
         for func in funcs {
