@@ -10,7 +10,12 @@ typedef struct {
     ServiceError error;
 } EndpointResponse;
 
-typedef EndpointResponse (*RequestHandlerFP)(NON_NULL ContextSupplier, String);
+//Endpoint request handler FP
+// The first    argument is the context to interact with the plugin system.
+// The second   argument is the name of the plugin making the request.
+// The third    argument is the arguments to the endpoint.
+// Returns a response object containing either an Error or the Response string.
+typedef EndpointResponse (*RequestHandlerFP)(NON_NULL ContextSupplier, String, String);
 
 // Service function to register a new endpoint.
 // The first    argument is the json schema the endpoints arguments have to satisfy.
@@ -28,9 +33,10 @@ typedef ServiceError (*EndpointRegisterService)(String, String, Uuid, String, Re
 typedef ServiceError (*EndpointUnregisterService)(Uuid, String);
 
 // Service function to call an endpoint.
-// The second   argument is the endpoint name to be called.
+// The first    argument is the endpoint name to be called.
+// The second   argument has to be the plugins uuid.
 // The third    argument is the endpoints arguments.
 // Returns the response of the endpoint.
-typedef EndpointResponse (*EndpointRequestService)(String, String);
+typedef EndpointResponse (*EndpointRequestService)(String, Uuid, String);
 
 #endif

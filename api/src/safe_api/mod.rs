@@ -417,9 +417,10 @@ impl ApplicationContext {
     pub fn endpoint_request<S: Into<CString>, T: Into<CString>>(
         &self,
         endpoint_name: S,
+        plugin_id: Uuid,
         args: T,
     ) -> Result<EndpointResponse, ServiceError> {
-        self.endpoint_request.to_safe_fp()(endpoint_name, args)
+        self.endpoint_request.to_safe_fp()(endpoint_name, plugin_id, args)
     }
 
     #[allow(clippy::too_many_arguments)]

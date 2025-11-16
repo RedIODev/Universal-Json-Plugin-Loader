@@ -52,7 +52,8 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     let args: PowWrap = serde_json::from_str(&args.into()).error(ServiceError::InvalidString)?;
     POWER.store(args.command, Ordering::Relaxed);
     if args.delay.is_some() {
-        context().endpoint_request("core:power", json!({"command": "cancel"}).to_string())?;
+        let uuid = **UUID.load().as_ref().error(ServiceError::PluginInternalError)?;
+        context().endpoint_request("core:power", uuid, json!({"command": "cancel"}).to_string())?;
         println!("canceled shutdown");
     }
     Ok(())
@@ -76,7 +77,7 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, 
             } else {
                 json!({"command": input.trim()}).to_string()
             };
-            match context().endpoint_request("core:power", args) {
+            match context().endpoint_request("core:power", uuid, args) {
                 Ok(response) => println!("Response:{response}"),
                 Err(err) => println!("RequestError:{err}")
             }

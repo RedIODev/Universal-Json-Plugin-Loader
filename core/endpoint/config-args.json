@@ -1,0 +1,19 @@
+{
+    "title": "Config-args-schema",
+    "description": "Defines the shape of the endpoint args, loads without a key return the entire config of the plugin",
+    "type": "object",
+
+    "properties": {
+        "action": {
+            "enum": ["load", "save", "reload"]
+        },
+        "key": {
+            "type": "string"
+        },
+        "value": {
+            "type": "object"
+        }
+    },
+    "required": ["command"]
+}
+

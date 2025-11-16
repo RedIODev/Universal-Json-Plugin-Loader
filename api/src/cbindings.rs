@@ -472,7 +472,7 @@ const _: () = {
         [::std::mem::offset_of!(CEndpointResponse, error) - 24usize];
 };
 pub type CRequestHandlerFP = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString) -> CEndpointResponse,
+    unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString, arg3: CString) -> CEndpointResponse,
 >;
 pub type CEndpointRegisterService = ::std::option::Option<
     unsafe extern "C" fn(
@@ -485,8 +485,9 @@ pub type CEndpointRegisterService = ::std::option::Option<
 >;
 pub type CEndpointUnregisterService =
     ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> CServiceError>;
-pub type CEndpointRequestService =
-    ::std::option::Option<unsafe extern "C" fn(arg1: CString, arg2: CString) -> CEndpointResponse>;
+pub type CEndpointRequestService = ::std::option::Option<
+    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> CEndpointResponse,
+>;
 pub type Cwchar_t = ::std::os::raw::c_int;
 #[repr(C)]
 #[repr(align(16))]

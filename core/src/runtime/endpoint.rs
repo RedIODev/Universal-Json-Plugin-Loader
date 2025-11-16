@@ -17,9 +17,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    governor::get_gov,
-    runtime::{ContextSupplierImpl, EventTrigger, PowerState, schema_from_file},
-    util::LockedMap,
+    config::ConfigRequestHandler, governor::get_gov, runtime::{ContextSupplierImpl, EventTrigger, PowerState, schema_from_file}, util::LockedMap
 };
 
 use ServiceError::CoreInternalError;
@@ -58,8 +56,17 @@ pub fn register_core_endpoints(endpoints: &Endpoints, core_id: Uuid) {
             CorePowerHandler::adapter_fp(),
             schema_from_file(include_str!("../../endpoint/power-args.json")),
             schema_from_file(include_str!("../../endpoint/power-resp.json")),
-            core_id,
+            core_id
         ),
+    );
+    new_endpoints.insert(
+        "core:config".into(),
+        Endpoint::new(
+            ConfigRequestHandler::adapter_fp(),
+            schema_from_file(include_str!("../../endpoint/config-args.json")),
+            schema_from_file(include_str!("../../endpoint/config-resp.json")),
+            core_id
+        )
     );
     endpoints.rcu(|map| HashMap::clone(map).union(new_endpoints.clone()));
 }
@@ -79,8 +86,9 @@ struct PowerArgs {
 }
 
 #[trait_fn(RequestHandlerFunc for CorePowerHandler)]
-pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
+pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef<str>>(
     context_supplier: F,
+    _: T,
     args: S,
 ) -> Result<EndpointResponse, ServiceError> {
     let args = serde_json::from_str::<PowerArgs>(&args.into()).error(ServiceError::InvalidJson)?;
@@ -203,10 +211,19 @@ pub(super) fn unregister<S: AsRef<str>>(
 #[trait_fn(EndpointRequestService for EndpointRequest)]
 pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
     endpoint_name: S,
+    plugin_id: Uuid,
     args: T,
 ) -> Result<EndpointResponse, ServiceError> {
     let args = args.into();
     let arguments_json = serde_json::from_str(args.as_ref()).error(ServiceError::InvalidJson)?;
+    let plugin_name = {
+        let gov = get_gov().error(CoreInternalError)?;
+        let plugins = gov.loader().plugins().load();
+        plugins.get(&plugin_id)
+                .map(|p| &*p.name)
+                .error(ServiceError::NotFound)?
+                .to_string()
+    };
     let handler = {
         let gov = get_gov().error(CoreInternalError)?;
         let endpoints = gov.endpoints().load();
@@ -219,7 +236,7 @@ pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
             .error(ServiceError::InvalidApi)?;
         endpoint.request_handler.to_safe_fp()
     };
-    let response = handler(ContextSupplierImpl, args)?;
+    let response = handler(ContextSupplierImpl, plugin_name, args)?;
 
     let response_json =
         serde_json::from_str(response.response().error(ServiceError::InvalidString)?).error(ServiceError::InvalidJson)?;
