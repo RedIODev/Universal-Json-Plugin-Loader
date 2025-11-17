@@ -1,17 +1,20 @@
 {
     "title": "Power-schema",
-    "description": "Defines the shape of the event args",
+    "description": "The arguments for the event that is triggered when the power endpoint was used.",
     "type": "object",
 
     "properties": {
         "command": {
+            "description": "The command the power endpoint was used with.",
             "enum": ["shutdown", "restart", "cancel"]
         },
         "timestamp": {
+            "description": "The time the power endpoint was used.",
             "type": "string"
         },
         "delay": {
-            "type": "number"
+            "description": "The optional delay the command is delayed with in milliseconds.",
+            "type": "integer"
         }
     },
     "required": ["command", "timestamp"]

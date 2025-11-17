@@ -1,15 +1,16 @@
 {
     "title": "Power-args-schema",
-    "description": "Defines the shape of the endpoint args",
+    "description": "The arguments for the endpoint that controls the power state of the application.",
     "type": "object",
 
     "properties": {
         "command": {
+            "description": "Shutdown: shuts down the application, Restart: restarts the application, Cancel: cancels a planned shutdown/restart.",
             "enum": ["shutdown", "restart", "cancel"]
         },
         "delay": {
-            "type": "integer",
-            "description": "Delay in ms (u32)"
+            "description": "An optional delay for shutdown or restart in milliseconds.",
+            "type": "integer"
         }
     },
     "required": ["command"]

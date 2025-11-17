@@ -1,16 +1,19 @@
 {
     "title": "Config-args-schema",
-    "description": "Defines the shape of the endpoint args, loads without a key return the entire config of the plugin",
+    "description": "The arguments for the endpoint that provides access to the config of the plugin.",
     "type": "object",
 
     "properties": {
         "action": {
+            "description": "Load: loads the config or a key of it, Save: Permanently stores a config with key and value, Reload: reloads all configs.",
             "enum": ["load", "save", "reload"]
         },
         "key": {
+            "description": "Used to load a specific key or to save a new key.",
             "type": "string"
         },
         "value": {
+            "description": "Used to save a new value.",
             "type": "object"
         }
     },

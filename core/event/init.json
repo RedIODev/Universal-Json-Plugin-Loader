@@ -1,22 +1,26 @@
 {
     
     "title": "Init-schema",
-    "description": "Defines the shape of the event args",
+    "description": "The arguments for the event that is triggered when the application initializes.",
     "type": "object",
 
     "properties": {
         "core_version": {
+            "description": "The version of the loader.",
             "type": "string"
         },
         "plugins": {
+            "description": "The plugins loaded on init.",
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
                     "name": {
+                        "description": "The name of a plugin.", 
                         "type": "string"
                     },
                     "version": {
+                        "description": "The version of a plugin.",
                         "type": "string"
                     }
                 }

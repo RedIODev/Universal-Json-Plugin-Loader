@@ -1,10 +1,11 @@
 {
     "title": "Power-response-schema",
-    "description": "Defines the shape of the endpoint response",
+    "description": "The response for the endpoint that controls the power state of the application.",
     "type": "object",
 
     "properties": {
         "canceled": {
+            "description": "If present (true) the requested operation was canceled by another plugin.",
             "type": "boolean"
         }
     },
