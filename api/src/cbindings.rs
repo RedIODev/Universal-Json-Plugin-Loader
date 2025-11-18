@@ -370,6 +370,12 @@ unsafe extern "C" {
     pub fn createString(arg1: *const Cc8, arg2: Cusize, arg3: CStringDealloc) -> CString;
 }
 unsafe extern "C" {
+    pub fn fromErrorString(arg1: CServiceError) -> CString;
+}
+unsafe extern "C" {
+    pub fn asErrorString(arg1: *const CString) -> *mut CServiceError;
+}
+unsafe extern "C" {
     pub fn destroyString(arg1: *mut CString);
 }
 unsafe extern "C" {
@@ -456,23 +462,8 @@ pub type CEventUnregisterService =
 pub type CEventTriggerService = ::std::option::Option<
     unsafe extern "C" fn(arg1: CUuid, arg2: CString, arg3: CString) -> CServiceError,
 >;
-#[repr(C)]
-#[derive(Debug)]
-pub struct CEndpointResponse {
-    pub response: CString,
-    pub error: CServiceError,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of CEndpointResponse"][::std::mem::size_of::<CEndpointResponse>() - 28usize];
-    ["Alignment of CEndpointResponse"][::std::mem::align_of::<CEndpointResponse>() - 4usize];
-    ["Offset of field: CEndpointResponse::response"]
-        [::std::mem::offset_of!(CEndpointResponse, response) - 0usize];
-    ["Offset of field: CEndpointResponse::error"]
-        [::std::mem::offset_of!(CEndpointResponse, error) - 24usize];
-};
 pub type CRequestHandlerFP = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString, arg3: CString) -> CEndpointResponse,
+    unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString, arg3: CString) -> CString,
 >;
 pub type CEndpointRegisterService = ::std::option::Option<
     unsafe extern "C" fn(
@@ -486,7 +477,7 @@ pub type CEndpointRegisterService = ::std::option::Option<
 pub type CEndpointUnregisterService =
     ::std::option::Option<unsafe extern "C" fn(arg1: CUuid, arg2: CString) -> CServiceError>;
 pub type CEndpointRequestService = ::std::option::Option<
-    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> CEndpointResponse,
+    unsafe extern "C" fn(arg1: CString, arg2: CUuid, arg3: CString) -> CString,
 >;
 pub type Cwchar_t = ::std::os::raw::c_int;
 #[repr(C)]

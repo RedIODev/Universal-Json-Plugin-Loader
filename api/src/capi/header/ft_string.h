@@ -3,6 +3,7 @@
 
 #include "ft_types.h"
 #include "ft_list.h"
+#include "ft_util.h"
 
 
 
@@ -21,6 +22,12 @@ typedef struct {
 // When a String instance is created with invalid arguments the ownership of the buffer is returned to the caller.
 // The deallocator can be null in which case the buffer will be leaked if not managed otherwise.
 String createString(const c8 *, usize, StringDealloc);
+
+// Creates an invalid String containing the ServiceError as an Invalid Value. It does not allocate anything, just storing the error in the String handle.
+String fromErrorString(ServiceError);
+
+// Attempts to reinterpret an invalid String as an Service Error. Returns null if not an ServiceError. 
+ServiceError *asErrorString(const String *);
 
 // Destroys the String including it's content. The instance is no longer valid after a call to this function.
 // Calling destroy on invalid Strings has no effects and is considered a nop (just like any other function).

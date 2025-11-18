@@ -1,6 +1,4 @@
 use std::fmt::Debug;
-
-use std::fmt::Display;
 use std::hash::Hash;
 
 use derive_more::Display;
@@ -11,7 +9,7 @@ pub mod pointer_traits;
 
 use crate::cbindings::CApiVersion;
 use crate::cbindings::{CApplicationContext, CList_String, CPluginInfo};
-use crate::cbindings::{CEndpointResponse, CEventHandler, CServiceError, CString};
+use crate::cbindings::{CEventHandler, CServiceError, CString};
 use crate::misc::ApiMiscError;
 use crate::safe_api::pointer_traits::{
     ContextSupplier, EndpointRegisterService, EndpointRegisterServiceFPAdapter,
@@ -233,72 +231,6 @@ impl From<CEventHandler> for Result<EventHandler, ServiceError> {
     }
 }
 
-pub struct EndpointResponse {
-    response: CString,
-}
-
-impl CEndpointResponse {
-    pub fn to_rust(self) -> Result<EndpointResponse, ServiceError> {
-        self.error.to_rust()?;
-        Ok(EndpointResponse {
-            response: self.response,
-        })
-    }
-}
-
-impl EndpointResponse {
-    #[must_use]
-    pub fn to_c(self) -> CEndpointResponse {
-        CEndpointResponse {
-            response: self.response,
-            error: CServiceError::Success,
-        }
-    }
-
-    pub fn new<S: Into<CString>>(response: S) -> Self {
-        Self {
-            response: response.into(),
-        }
-    }
-
-    pub fn response(&self) -> Result<&str, ApiMiscError> {
-        self.response.as_str()
-    }
-}
-
-impl From<EndpointResponse> for CEndpointResponse {
-    fn from(value: EndpointResponse) -> Self {
-        value.to_c()
-    }
-}
-
-impl From<ServiceError> for CEndpointResponse {
-    fn from(value: ServiceError) -> Self {
-        CEndpointResponse::new_error(value.into())
-    }
-}
-
-impl From<Result<EndpointResponse, ServiceError>> for CEndpointResponse {
-    fn from(value: Result<EndpointResponse, ServiceError>) -> Self {
-        match value {
-            Ok(ok) => ok.into(),
-            Err(e) => e.into(),
-        }
-    }
-}
-
-impl From<CEndpointResponse> for Result<EndpointResponse, ServiceError> {
-    fn from(value: CEndpointResponse) -> Self {
-        value.to_rust()
-    }
-}
-
-impl Display for EndpointResponse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(self.response.as_str().expect("invalid string printed!"), f)
-    }
-}
-
 #[must_use]
 pub struct ApplicationContext {
     handler_register: EventHandlerRegisterServiceUnsafeFP,
@@ -419,7 +351,7 @@ impl ApplicationContext {
         endpoint_name: S,
         plugin_id: Uuid,
         args: T,
-    ) -> Result<EndpointResponse, ServiceError> {
+    ) -> Result<String, ServiceError> {
         self.endpoint_request.to_safe_fp()(endpoint_name, plugin_id, args)
     }
 

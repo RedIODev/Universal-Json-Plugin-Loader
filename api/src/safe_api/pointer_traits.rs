@@ -7,10 +7,10 @@ use uuid::Uuid;
 use crate::{
     ErrorMapper,
     cbindings::{
-        CApplicationContext, CContextSupplier, CEndpointResponse, CEventHandler, CEventHandlerFP,
+        CApplicationContext, CContextSupplier, CEventHandler, CEventHandlerFP,
         CServiceError, CString, CUuid,
     },
-    safe_api::{ApplicationContext, EndpointResponse, EventHandler, ServiceError},
+    safe_api::{ApplicationContext, EventHandler, ServiceError},
 };
 
 pub use trait_fn::*;
@@ -269,7 +269,7 @@ pub trait RequestHandlerFunc {
         context_supplier: F,
         plugin_name: T,
         args: S,
-    ) -> Result<EndpointResponse, ServiceError>;
+    ) -> Result<String, ServiceError>;
 
     ///
     ///
@@ -282,7 +282,7 @@ pub trait RequestHandlerFunc {
         context_supplier: CContextSupplier,
         plugin_name: CString,
         args: CString,
-    ) -> CEndpointResponse {
+    ) -> CString {
         let args = match args.as_str().error(ServiceError::InvalidString) {
             Ok(args) => args,
             Err(e) => return e.into(),
@@ -303,7 +303,7 @@ pub trait RequestHandlerFunc {
     #[fp_adapter]
     fn to_safe_fp<'a, C: ContextSupplier, S: Into<CString>, T: Into<CString>>(
         self: RequestHandlerFuncUnsafeFP,
-    ) -> impl Fn(C, S, T) -> Result<EndpointResponse, ServiceError> {
+    ) -> impl Fn(C, S, T) -> Result<String, ServiceError> {
         move |_, plugin_name,args| unsafe { self(Some(C::adapter_fp()), plugin_name.into(), args.into()).into() }
     }
 }
@@ -413,7 +413,7 @@ pub trait EndpointRequestService {
         endpoint_name: S,
         plugin_id: Uuid,
         args: T,
-    ) -> Result<EndpointResponse, ServiceError>;
+    ) -> Result<String, ServiceError>;
 
     ///
     ///
@@ -422,7 +422,7 @@ pub trait EndpointRequestService {
     /// It is safe to call with valid arguments and does the same as [`EndpointRequestService::request`].
     ///
     #[adapter]
-    unsafe extern "C" fn adapter(endpoint_name: CString, plugin_id: CUuid, args: CString) -> CEndpointResponse {
+    unsafe extern "C" fn adapter(endpoint_name: CString, plugin_id: CUuid, args: CString) -> CString {
         let endpoint_name = match endpoint_name.as_str().error(ServiceError::InvalidString) {
             Ok(endpoint_name) => endpoint_name,
             Err(e) => return e.into(),
@@ -438,7 +438,7 @@ pub trait EndpointRequestService {
     #[fp_adapter]
     fn to_safe_fp<S: Into<CString>, T: Into<CString>>(
         self: EndpointRequestServiceUnsafeFP,
-    ) -> impl Fn(S, Uuid, T) -> Result<EndpointResponse, ServiceError> {
+    ) -> impl Fn(S, Uuid, T) -> Result<String, ServiceError> {
         move |endpoint_name, plugin_id,args| unsafe { self(endpoint_name.into(), plugin_id.into(), args.into()).into() }
     }
 }

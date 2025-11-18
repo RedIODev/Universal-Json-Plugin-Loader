@@ -14,7 +14,7 @@ use clap::Args;
 use derive_more::Display;
 use dirs::config_dir;
 use finance_together_api::{
-    ApplicationContext, EndpointResponse, ErrorMapper, ServiceError,
+    ApplicationContext, ErrorMapper, ServiceError,
     pointer_traits::{RequestHandlerFunc, trait_fn},
 };
 use serde::Deserialize;
@@ -131,7 +131,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
     _: F,
     plugin_name: T,
     args: S,
-) -> Result<EndpointResponse, ServiceError> {
+) -> Result<String, ServiceError> {
     let args = serde_json::from_str::<ConfigArgs>(&args.into()).error(ServiceError::InvalidJson)?;
     match args {
         ConfigArgs { action: Action::Load ,key, .. } => load_config(plugin_name.as_ref(), key),
@@ -141,20 +141,20 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
     }
 }
 
-fn load_config(plugin_name: &str, key: Option<String>) -> Result<EndpointResponse, ServiceError> {
+fn load_config(plugin_name: &str, key: Option<String>) -> Result<String, ServiceError> {
     let gov = get_gov().error(ServiceError::CoreInternalError)?;
     let config = gov.config().configs.load();
     let conf = config
             .get(plugin_name)
             .error(ServiceError::NotFound)?;
     let Some(key) = key else {
-        return Ok(EndpointResponse::new(serde_json::to_string(conf).error(ServiceError::CoreInternalError)?));
+        return serde_json::to_string(conf).error(ServiceError::CoreInternalError);
     };
     let entry = conf.get(key.as_str()).error(ServiceError::NotFound)?;
-    Ok(EndpointResponse::new(serde_json::to_string(entry).error(ServiceError::CoreInternalError)?))
+    serde_json::to_string(entry).error(ServiceError::CoreInternalError)
 }
 
-fn save_config(plugin_name: &str, key: String, value: toml::Value) -> Result<EndpointResponse, ServiceError> {
+fn save_config(plugin_name: &str, key: String, value: toml::Value) -> Result<String, ServiceError> {
     let filepath = get_gov()
             .error(ServiceError::CoreInternalError)?
             .config()
@@ -166,12 +166,12 @@ fn save_config(plugin_name: &str, key: String, value: toml::Value) -> Result<End
         toml::to_string(&file_conf)
                     .error(ServiceError::CoreInternalError)?)
             .error(ServiceError::CoreInternalError)?;
-    Ok(EndpointResponse::new(json!({}).to_string()))
+    Ok(json!({}).to_string())
 }
 
-fn reload_config() -> Result<EndpointResponse, ServiceError> {
+fn reload_config() -> Result<String, ServiceError> {
     Config::init().error(ServiceError::CoreInternalError)?;
-    Ok(EndpointResponse::new(json!({}).to_string()))
+    Ok(json!({}).to_string())
 }
 
 #[derive(Debug, Display, Error)]

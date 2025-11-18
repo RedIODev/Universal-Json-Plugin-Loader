@@ -1,13 +1,11 @@
-use std::str::Utf8Error;
+use std::{borrow::Cow, str::Utf8Error};
 
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::cbindings::{
-    CApiVersion, CEndpointResponse, CEventHandler, CList_String, CServiceError, CString, CUuid,
-    createListString, createString, destroyListString, destroyString, emptyListString,
-    getLengthString, getViewString, isValidListString, isValidString,
-};
+use crate::{ErrorMapper, ServiceError, cbindings::{
+    CApiVersion, CEventHandler, CList_String, CServiceError, CString, CUuid, asErrorString, createListString, createString, destroyListString, destroyString, emptyListString, fromErrorString, getLengthString, getViewString, isValidListString, isValidString
+}};
 
 #[cfg(feature = "safe")]
 impl From<CUuid> for uuid::Uuid {
@@ -33,7 +31,11 @@ impl Drop for CString {
 impl CString {
     pub fn as_str(&self) -> Result<&str, ApiMiscError> {
         if unsafe { !isValidString(self) } {
-            return Err(ApiMiscError::InvalidString);
+            let service_error = unsafe { asErrorString(self) };
+            if service_error.is_null() {
+                return Err(ApiMiscError::InvalidString);
+            }
+            unsafe {(&*service_error).clone()}.to_rust()?;
         }
         let len = unsafe { getLengthString(self) };
         let ptr = unsafe { getViewString(self, 0, len) };
@@ -43,16 +45,61 @@ impl CString {
     }
 }
 
-impl<T> From<T> for CString
-where
-    T: Into<Box<str>>,
-{
-    fn from(value: T) -> Self {
-        let boxed_str: Box<str> = value.into();
-        let leaked = unsafe { &mut *Box::into_raw(boxed_str) };
+impl From<ServiceError> for CString {
+    fn from(value: ServiceError) -> Self {
+        unsafe {fromErrorString(value.into())}
+    }
+}
+
+impl<'a> From<&'a CString> for Result<&'a str, ServiceError> {
+    fn from(value: &'a CString) -> Self {
+        value.as_str().map_err(|e| match e {
+                ApiMiscError::Service(se) => se,
+                e => Err(e).error(ServiceError::InvalidString).expect("unreachable!")
+            }
+        )
+    }
+}
+
+impl From<CString> for Result<String, ServiceError> {
+    fn from(value: CString) -> Self {
+        Result::<& str,_>::from(&value).map(String::from)
+    }
+}
+
+impl From<Result<String, ServiceError>> for CString {
+    fn from(value: Result<String, ServiceError>) -> Self {
+        match value {
+            Ok(str) => CString::from(Box::from(str)),
+            Err(e) => e.into()
+        }
+    }
+}
+//todo redo from<into<Box<str>>> and from result.
+impl From<Box<str>> for CString {
+    fn from(value: Box<str>) -> Self {
+        let leaked = unsafe { &mut *Box::into_raw(value) };
         let ptr = leaked.as_ptr();
         let length = leaked.len();
         unsafe { createString(ptr, length, Some(drop_string)) }
+    }
+}
+
+impl From<&str> for CString {
+    fn from(value: &str) -> Self {
+        CString::from(Box::from(value))
+    }
+}
+
+impl From<String> for CString {
+    fn from(value: String) -> Self {
+        CString::from(Box::from(value))
+    }
+}
+
+impl From<Cow<'_, str>> for CString {
+    fn from(value: Cow<str>) -> Self {
+        CString::from(Box::from(value))
     }
 }
 
@@ -72,16 +119,6 @@ impl CEventHandler {
                 higher: 0,
                 lower: 0,
             },
-            error,
-        }
-    }
-}
-
-impl CEndpointResponse {
-    #[must_use]
-    pub fn new_error(error: CServiceError) -> Self {
-        Self {
-            response: CString::from(""),
             error,
         }
     }
@@ -215,4 +252,5 @@ pub enum ApiMiscError {
     InvalidList,
     InvalidString,
     Utf8(#[from] Utf8Error),
+    Service(#[from]ServiceError)
 }

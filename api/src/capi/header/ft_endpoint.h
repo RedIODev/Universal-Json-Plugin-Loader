@@ -5,17 +5,17 @@
 
 // EndpointResponse struct that carries the success state and the response with it.
 // All fields values are undefined unless the error field == SERVICE_SUCCESS.
-typedef struct {
-    String response;
-    ServiceError error;
-} EndpointResponse;
+// typedef struct {
+//     String response;
+//     ServiceError error;
+// } EndpointResponse;
 
 //Endpoint request handler FP
 // The first    argument is the context to interact with the plugin system.
 // The second   argument is the name of the plugin making the request.
 // The third    argument is the arguments to the endpoint.
-// Returns a response object containing either an Error or the Response string.
-typedef EndpointResponse (*RequestHandlerFP)(NON_NULL ContextSupplier, String, String);
+// Returns either valid string response or an invalid string containing the ServiceError.
+typedef String (*RequestHandlerFP)(NON_NULL ContextSupplier, String, String);
 
 // Service function to register a new endpoint.
 // The first    argument is the json schema the endpoints arguments have to satisfy.
@@ -37,6 +37,6 @@ typedef ServiceError (*EndpointUnregisterService)(Uuid, String);
 // The second   argument has to be the plugins uuid.
 // The third    argument is the endpoints arguments.
 // Returns the response of the endpoint.
-typedef EndpointResponse (*EndpointRequestService)(String, Uuid, String);
+typedef String (*EndpointRequestService)(String, Uuid, String);
 
 #endif

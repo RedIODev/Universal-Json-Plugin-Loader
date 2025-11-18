@@ -3,10 +3,7 @@
     "description": "The response for the endpoint that provides access to the config of the plugin.",
     "type": "object",
 
-    "properties": {
-        "description": "The config loaded from the load action. Empty for other actions.",
-        "type": "object"
-    },
+
     "required": []
 }
 

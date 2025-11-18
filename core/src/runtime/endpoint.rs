@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
 use finance_together_api::{
-    ApplicationContext, EndpointResponse, ErrorMapper, ServiceError,
+    ApplicationContext, ErrorMapper, ServiceError,
     pointer_traits::{
         EndpointRegisterService, EndpointRequestService, EndpointUnregisterService,
         EventTriggerService, RequestHandlerFunc, RequestHandlerFuncFPAdapter,
@@ -90,7 +90,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
     context_supplier: F,
     _: T,
     args: S,
-) -> Result<EndpointResponse, ServiceError> {
+) -> Result<String, ServiceError> {
     let args = serde_json::from_str::<PowerArgs>(&args.into()).error(ServiceError::InvalidJson)?;
     match get_gov().error(CoreInternalError)?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
@@ -128,7 +128,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
     }
 
     if let PowerState::Cancel = get_gov().error(CoreInternalError)?.runtime().check_and_reset_power() {
-        return Ok(EndpointResponse::new(json!({"canceled": true}).to_string()));
+        return Ok(json!({"canceled": true}).to_string());
     }
 
     let power_state = match args.command {
@@ -138,7 +138,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
     };
 
     get_gov().error(CoreInternalError)?.runtime().set_power(power_state);
-    Ok(EndpointResponse::new(json!({}).to_string()))
+    Ok(json!({}).to_string())
 }
 
 #[trait_fn(EndpointRegisterService for EndpointRegister)]
@@ -213,7 +213,7 @@ pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
     endpoint_name: S,
     plugin_id: Uuid,
     args: T,
-) -> Result<EndpointResponse, ServiceError> {
+) -> Result<String, ServiceError> {
     let args = args.into();
     let arguments_json = serde_json::from_str(args.as_ref()).error(ServiceError::InvalidJson)?;
     let plugin_name = {
@@ -239,7 +239,7 @@ pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
     let response = handler(ContextSupplierImpl, plugin_name, args)?;
 
     let response_json =
-        serde_json::from_str(response.response().error(ServiceError::InvalidString)?).error(ServiceError::InvalidJson)?;
+        serde_json::from_str(&response).error(ServiceError::InvalidJson)?;
 
     {
         let gov = get_gov().error(CoreInternalError)?;
