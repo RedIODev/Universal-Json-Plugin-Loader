@@ -32,15 +32,15 @@ impl ParseCallbacks for CloneDerive {
 fn main() {
     println!("cargo::rerun-if-changed=src/capi/header/ft_api.h");
 
-    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    // let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    cbindgen::Builder::new()
-        .with_language(cbindgen::Language::C)
-        .with_crate(crate_dir)
-        .with_include_guard("FT_RUSTBINDINGS_H")
-        .generate()
-        .expect("Unable to generate rust -> c bindings!")
-        .write_to_file("src/capi/header/ft_rustbindings.h");
+    // cbindgen::Builder::new()
+    //     .with_language(cbindgen::Language::C)
+    //     .with_crate(crate_dir)
+    //     .with_include_guard("FT_RUSTBINDINGS_H")
+    //     .generate()
+    //     .expect("Unable to generate rust -> c bindings!")
+    //     .write_to_file("src/capi/header/ft_rustbindings.h");
 
     let mut renamer = Renamer::new(false);
 
