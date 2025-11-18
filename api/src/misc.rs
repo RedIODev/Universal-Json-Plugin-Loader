@@ -1,4 +1,4 @@
-use std::{borrow::Cow, str::Utf8Error};
+use std::str::Utf8Error;
 
 use derive_more::Display;
 use thiserror::Error;
@@ -67,39 +67,26 @@ impl From<CString> for Result<String, ServiceError> {
     }
 }
 
-impl From<Result<String, ServiceError>> for CString {
-    fn from(value: Result<String, ServiceError>) -> Self {
-        match value {
-            Ok(str) => CString::from(Box::from(str)),
+pub trait ToCString {
+    fn to_c_string(self) -> CString;
+}
+
+impl<T: Into<Box<str>>> ToCString for Result<T, ServiceError> {
+    fn to_c_string(self) -> CString {
+        match self {
+            Ok(str) => CString::from(str.into()),
             Err(e) => e.into()
         }
     }
 }
-//todo redo from<into<Box<str>>> and from result.
-impl From<Box<str>> for CString {
-    fn from(value: Box<str>) -> Self {
-        let leaked = unsafe { &mut *Box::into_raw(value) };
+
+impl<T: Into<Box<str>>> From<T> for CString {
+    fn from(value: T) -> Self {
+        let boxed = value.into();
+        let leaked = unsafe { &mut *Box::into_raw(boxed) };
         let ptr = leaked.as_ptr();
         let length = leaked.len();
         unsafe { createString(ptr, length, Some(drop_string)) }
-    }
-}
-
-impl From<&str> for CString {
-    fn from(value: &str) -> Self {
-        CString::from(Box::from(value))
-    }
-}
-
-impl From<String> for CString {
-    fn from(value: String) -> Self {
-        CString::from(Box::from(value))
-    }
-}
-
-impl From<Cow<'_, str>> for CString {
-    fn from(value: Cow<str>) -> Self {
-        CString::from(Box::from(value))
     }
 }
 

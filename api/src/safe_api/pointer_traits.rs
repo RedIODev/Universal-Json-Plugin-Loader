@@ -5,12 +5,10 @@ use std::borrow::Cow;
 use uuid::Uuid;
 
 use crate::{
-    ErrorMapper,
-    cbindings::{
+    ErrorMapper, cbindings::{
         CApplicationContext, CContextSupplier, CEventHandler, CEventHandlerFP,
         CServiceError, CString, CUuid,
-    },
-    safe_api::{ApplicationContext, EventHandler, ServiceError},
+    }, misc::ToCString, safe_api::{ApplicationContext, EventHandler, ServiceError}
 };
 
 pub use trait_fn::*;
@@ -297,7 +295,7 @@ pub trait RequestHandlerFunc {
         };
         let context =
             || context.to_safe_fp()().expect("ApplicationContext must only contain valid fp!");
-        Self::handle(context, plugin_name, args).into()
+        Self::handle(context, plugin_name, args).to_c_string()
     }
 
     #[fp_adapter]
@@ -432,7 +430,7 @@ pub trait EndpointRequestService {
             Err(e) => return e.into(),
         };
 
-        Self::request(endpoint_name, plugin_id.into(), args).into()
+        Self::request(endpoint_name, plugin_id.into(), args).to_c_string()
     }
 
     #[fp_adapter]
