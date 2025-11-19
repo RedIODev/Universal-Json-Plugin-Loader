@@ -13,7 +13,7 @@ pub fn plugin_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let item  = parse_macro_input!(item as ItemFn);
     let item_name = item.sig.ident.clone();
     quote! {
-        use finance_together_api::c::{CUuid, CPluginInfo};
+        use plugin_loader_api::c::{CUuid, CPluginInfo};
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn plugin_main(uuid: CUuid) -> CPluginInfo {
             #item_name(uuid.into()).into()

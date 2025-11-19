@@ -9,7 +9,7 @@ serde = { version = "1.0.226", features = ["derive"] }
 uuid = "1.18.1"
 atomic_enum = "0.3.0"
 arc-swap = "1.7.1"
-finance-together-api = { path = "../api", features = ["safe"] }
+plugin-loader-api = { path = "../api", features = ["safe"] }
 
 
 [lib]

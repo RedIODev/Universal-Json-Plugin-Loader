@@ -1,7 +1,7 @@
 use std::{borrow::Cow, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
-use finance_together_api::{
+use plugin_loader_api::{
     ApplicationContext, ErrorMapper, ServiceError,
     pointer_traits::{
         EndpointRegisterService, EndpointRequestService, EndpointUnregisterService,

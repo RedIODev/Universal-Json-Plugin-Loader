@@ -10,7 +10,7 @@ mod launcher;
 mod loader;
 mod runtime;
 mod util;
-//refactor: remove mutex blocks
+//refactor: remove mutex blocks, check dependencies before running core:init
 pub fn main() -> Result<(), LaunchError> {
-    Launcher::new("finance-together").launch()
+    Launcher::new("example-loader").launch()
 }

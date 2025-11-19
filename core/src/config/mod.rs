@@ -13,7 +13,7 @@ use atomic_once_cell::AtomicOnceCell;
 use clap::Args;
 use convert_case::{Boundary, Case};
 use derive_more::Display;
-use finance_together_api::{
+use plugin_loader_api::{
     ApplicationContext, ErrorMapper, ServiceError,
     pointer_traits::{RequestHandlerFunc, trait_fn},
 };

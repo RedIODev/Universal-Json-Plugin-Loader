@@ -1,5 +1,5 @@
 [package]
-name = "finance-together-api"
+name = "plugin-loader-api"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,22 +8,21 @@ thiserror = "2.0.17"
 derive_more = { version = "2.0.1", features = ["display"] }
 derive-enum-from-into = "0.2.1"
 uuid = { version = "1.18.1", optional = true }
-trait_fn = { path = "../trait_fn", optional = true }
 cli-colors = "1.0.0"
+
+proc-macros = { path = "../proc-macros", optional = true }
 
 [build-dependencies]
 bindgen_helpers = "0.5.1"
 cbindgen = "0.29.2"
-cc = "1.2.45"
+cc = "1.2.46"
 
 [lib]
 crate-type = ["staticlib", "lib"]
 
 [features]
-default = []
 unsafe = []
-safe = ["dep:uuid", "dep:trait_fn"]
+safe = ["dep:uuid", "dep:proc-macros"]
 
 [lints.clippy]
 pedantic = "warn"
-

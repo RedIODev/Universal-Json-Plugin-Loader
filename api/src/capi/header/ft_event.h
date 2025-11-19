@@ -36,13 +36,13 @@ typedef ServiceError (*EventHandlerUnregisterService)(Uuid, Uuid, String);
 // Service function to register a new event.
 // The first    argument is the json schema the events arguments have to satisfy.
 // The second   argument has to be the plugins uuid.
-// The third    argument is the events name. This will be prefixed by this plugins name.
+// The third    argument is the events name. This will be prefixed by this plugins name. It can't contain any ':' characters.
 // Returns the success state of the registration.
 typedef ServiceError (*EventRegisterService)(String, Uuid, String);
 
 // Service function to unregister an event.
 // The first    argument has to be the plugins uuid.
-// The second   argument is the events name to be removed.
+// The second   argument is the events name to be removed. The name follows the format "<plugin-name>:<event-name>"
 // Returns the success state of the unregistration.
 typedef ServiceError (*EventUnregisterService)(Uuid, String);
 

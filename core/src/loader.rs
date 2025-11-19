@@ -1,7 +1,7 @@
 use std::{fs, sync::Arc};
 
 use derive_more::Display;
-use finance_together_api::{API_VERSION, EventHandler, ServiceError, cbindings::{CPluginInfo, CUuid}, misc::ApiMiscError};
+use plugin_loader_api::{API_VERSION, EventHandler, ServiceError, cbindings::{CPluginInfo, CUuid}, misc::ApiMiscError};
 use libloading::{Library, Symbol};
 
 
@@ -93,7 +93,7 @@ impl Loader {
         } // Mutex end
 
         #[cfg(debug_assertions)]
-        println!(
+        eprintln!(
             "Loaded Plugin \"{}\" version: {}",
             plugin.name, plugin.version
         );

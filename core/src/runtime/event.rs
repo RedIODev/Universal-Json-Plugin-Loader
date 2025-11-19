@@ -1,6 +1,6 @@
 use std::{collections::HashSet, hash::Hash};
 
-use finance_together_api::{
+use plugin_loader_api::{
     ErrorMapper, EventHandler, ServiceError,
     pointer_traits::{
         EventHandlerFuncUnsafeFP, EventHandlerRegisterService,

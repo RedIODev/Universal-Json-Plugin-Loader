@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
-use finance_together_api::ServiceError;
+use plugin_loader_api::ServiceError;
 use im::{HashMap, HashSet, Vector};
 use lazy_init::LazyTransform;
 use ouroboros::self_referencing;

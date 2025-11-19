@@ -21,7 +21,7 @@ use crate::{
 };
 use atomic_enum::atomic_enum;
 use derive_more::Display;
-use finance_together_api::{
+use plugin_loader_api::{
     ApplicationContext, ServiceError, pointer_traits::{ContextSupplier, EventTriggerService, trait_fn}
 };
 use jsonschema::Validator;

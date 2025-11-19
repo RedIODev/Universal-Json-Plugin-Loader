@@ -11,7 +11,7 @@ use crate::{
     }, misc::ToCString, safe_api::{ApplicationContext, EventHandler, ServiceError}
 };
 
-pub use trait_fn::*;
+pub use proc_macros::*;
 
 #[fn_trait]
 pub trait ContextSupplier {
@@ -103,8 +103,8 @@ pub trait EventHandlerRegisterService {
     #[fp_adapter]
     fn to_safe_fp<E: EventHandlerFunc, T: Into<CString>>(
         self: EventHandlerRegisterServiceUnsafeFP,
-    ) -> impl Fn(E, Uuid, T) -> Result<EventHandler, ServiceError> {
-        move |_, plugin_id, event_name| unsafe {
+    ) -> impl Fn(Uuid, T) -> Result<EventHandler, ServiceError> {
+        move | plugin_id, event_name| unsafe {
             self(Some(E::adapter_fp()), plugin_id.into(), event_name.into()).into()
         }
     }

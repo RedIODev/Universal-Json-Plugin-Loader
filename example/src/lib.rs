@@ -8,7 +8,7 @@ use std::{
 
 use arc_swap::ArcSwapOption;
 use atomic_enum::atomic_enum;
-use finance_together_api::{
+use plugin_loader_api::{
     API_VERSION, ApplicationContext, ErrorMapper, PluginInfo, ServiceError,
     pointer_traits::{EventHandlerFunc, plugin_main, trait_fn},
 };
@@ -64,7 +64,7 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, 
     
         println!("Plugin: Init: Test from plugin! Args:{}", args.into());
         let uuid = **UUID.load().as_ref().error(ServiceError::PluginInternalError)?;
-        context().register_event_handler(PowerListener, uuid, "core:power")?;
+        context().register_event_handler::<PowerListener,_>(uuid, "core:power")?;
         println!("before while loop with {:?}", POWER.load(Ordering::Relaxed));
         while POWER.load(Ordering::Relaxed) < MyPow::Shutdown {
             let mut input = String::new();
