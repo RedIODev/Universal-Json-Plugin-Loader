@@ -474,7 +474,7 @@ impl PluginInfo {
     }
 
     pub fn version(&self) -> Result<&str, ApiMiscError> {
-        self.name.as_str()
+        self.version.as_str()
     }
 
     pub fn dependencies(&self) -> Result<Vec<&str>, ApiMiscError> {

@@ -4,15 +4,15 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fs,
-    path::{Path, PathBuf},
+    path::Path,
     str::FromStr,
     sync::Arc,
 };
 
-use arc_swap::ArcSwap;
+use atomic_once_cell::AtomicOnceCell;
 use clap::Args;
+use convert_case::{Boundary, Case};
 use derive_more::Display;
-use dirs::config_dir;
 use finance_together_api::{
     ApplicationContext, ErrorMapper, ServiceError,
     pointer_traits::{RequestHandlerFunc, trait_fn},
@@ -30,8 +30,9 @@ use crate::{
 
 pub type ConfigMap = LockedMap<Box<str>, Table>;
 
+#[derive(Default)]
 pub struct Config {
-    user_dir: PathBuf,
+    root_dir_name: AtomicOnceCell<Box<Path>>,
     configs: ConfigMap,
 }
 
@@ -40,18 +41,6 @@ struct PluginArgs {
     plugin_args: Vec<String>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        let user_dir = config_dir()
-            .ok_or(ConfigError::NoConfigDir)
-            .expect("No config dir found!")
-            .join("finance-together");
-        Self {
-            user_dir,
-            configs: ArcSwap::default(),
-        }
-    }
-}
 
 impl Config {
     pub fn init() -> Result<(), ConfigError> {
@@ -73,22 +62,44 @@ impl Config {
         Ok(())
     }
 
+    pub fn set_config_dir(dir_name: impl AsRef<Path>) -> Result<(), ConfigError> {
+        let mut path = dir_name.as_ref().to_owned();
+        if !path.is_absolute() {
+            path = dirs::config_dir()
+            .ok_or(ConfigError::NoConfigDir)?.join(path);
+        }
+
+        get_gov()?.config().root_dir_name.set(path.into()).map_err(|_| ConfigError::ConfigRootAlreadySet)?;
+        Ok(())
+    }
+
+    pub fn config_dir(&self) -> &Path {
+        self.root_dir_name.get().expect("No config dir specified!")
+    }
+
+    fn env_prefix(&self) -> Result<Box<str>, ConfigError> {
+        let dir = self.config_dir().file_name().ok_or(ConfigError::NoConfigDir)?;
+        let converted = convert_case::Casing::to_case(&dir.to_string_lossy(), Case::Constant);
+        Ok(convert_case::split(&converted, &[Boundary::Underscore]).iter().filter_map(|word| word.chars().nth(0)).collect())
+    }
+
     fn read_config(path: &Path) -> Result<Table, ConfigError> {
         let config = std::fs::read_to_string(path)?;
         Ok(toml::from_str(&config)?)
     }
 
-    fn parse_env() -> Result<Vec<PluginOption>, cli::CliError> {
-        std::env::vars()
-            .filter_map(|(key, value)| key.strip_prefix("FT_").map(|key| format!("{key}={value}")))
+    fn parse_env() -> Result<Vec<PluginOption>, ConfigError> {
+        let prefix = get_gov()?.config().env_prefix()?;
+        Ok(std::env::vars()
+            .filter_map(|(key, value)| key.strip_prefix(&*prefix).map(|key| format!("{key}={value}")))
             .map(|arg| PluginOption::from_str(&arg))
-            .collect::<Result<Vec<_>, cli::CliError>>()
+            .collect::<Result<Vec<_>, cli::CliError>>()?)
     }
 
     fn parse_files() -> Result<HashMap<Box<str>, Table>, ConfigError> {
-        let config_dir = get_gov()?.config().user_dir.join("config");
-        fs::create_dir_all(config_dir.clone())?;
-        fs::read_dir(config_dir)?
+        let config_dir = get_gov()?.config().config_dir().join("config");
+        fs::create_dir_all(&config_dir)?;
+        config_dir.read_dir()?
             .filter_map(Result::ok)
             .filter(|entry| entry.path().is_file())
             .filter(|entry| {
@@ -158,7 +169,7 @@ fn save_config(plugin_name: &str, key: String, value: toml::Value) -> Result<Str
     let filepath = get_gov()
             .error(ServiceError::CoreInternalError)?
             .config()
-            .user_dir.join(plugin_name)
+            .config_dir().join(plugin_name)
             .with_extension(".toml");
     let mut file_conf = Config::read_config(&filepath).error(ServiceError::CoreInternalError)?;
     file_conf.insert(key, value);
@@ -177,6 +188,7 @@ fn reload_config() -> Result<String, ServiceError> {
 #[derive(Debug, Display, Error)]
 pub enum ConfigError {
     NoConfigDir,
+    ConfigRootAlreadySet,
     InvalidFileName,
     CliError(#[from] CliError),
     GovernorError(#[from] GovernorError),

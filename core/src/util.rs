@@ -3,6 +3,7 @@ use std::ops::Deref;
 use arc_swap::{ArcSwap, Guard, RefCnt};
 use finance_together_api::ServiceError;
 use im::{HashMap, HashSet, Vector};
+use lazy_init::LazyTransform;
 use ouroboros::self_referencing;
 use std::hash::Hash;
 
@@ -197,5 +198,17 @@ impl<T,E> ResultFlatten<T,E> for Result<Result<T, E>, E> {
             Ok(Ok(ok)) => Ok(ok),
             Ok(Err(err)) | Err(err) => Err(err)
         }
+    }
+}
+
+pub struct LazyInit<T, F: FnOnce() -> T = fn() -> T>(LazyTransform<F,T>);
+
+impl<T, F: FnOnce() -> T> LazyInit<T, F> {
+    pub fn new(init: F) -> Self {
+        Self(LazyTransform::new(init))
+    }
+
+    pub fn get(&self) -> &T {
+        self.0.get_or_create(|f| f())
     }
 }

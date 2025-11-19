@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr};
 
 use bindgen_helpers::{Renamer,
     callbacks::{ItemKind, ParseCallbacks},

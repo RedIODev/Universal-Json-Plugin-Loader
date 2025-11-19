@@ -8,7 +8,9 @@ struct ApplicationContext;
 
 typedef struct ApplicationContext (*ContextSupplier)();
 
-
+#define NULL_GUARD(var, ret) if (var == NULL) { \
+    return ret;\
+}
 
 // Uuid type to pass uuids over the ffi boundary safely
 typedef struct {

@@ -8,7 +8,7 @@ libloading = "0.9.0"
 uuid = { version = "1.18.1", features = ["v4"] }
 thiserror = "2.0.16"
 derive_more = { version = "2.0.1", features = ["display"] }
-jsonschema = "0.33.0"
+jsonschema = "0.37.1"
 serde_json = "1.0.145"
 serde = { version = "1.0.226", features = ["derive"] }
 topo_sort = "0.4.0"
@@ -16,6 +16,8 @@ threadpool = "1.8.1"
 ctrlc = "3.5.0"
 atomic_enum = "0.3.0"
 arc-swap = "1.7.1"
+atomic_once_cell = "0.2.0"
+lazy-init = "0.5.1"
 im = "15.1.0"
 ouroboros = "0.18.5"
 chrono = "0.4.42"
@@ -25,7 +27,6 @@ dirs = "6.0.0"
 toml = "0.9.8"
 convert_case = "0.9.0"
 clap = { version = "4.5.49", features = ["derive", "cargo"] }
-
 finance-together-api = { path = "../api", features = ["safe", "unsafe"] }
 
 

@@ -5,10 +5,6 @@
 #include <string.h>
 #include <assert.h>
 
-// #define STRING_ERROR_FLAG 0xEEEEEEEE
-
-// #define STRING_CAST *(String*) &
-
 #define FLAG_SIZE sizeof(StringDealloc) + sizeof(c8*)
 
 CREATE_LIST_TYPE_IMPL(String)
@@ -19,7 +15,7 @@ typedef struct {
     usize length;
     const c8 *data;
     StringDealloc dealloc_fn;
- }StringValid;
+ }StringData;
 
  typedef struct {
     ServiceError error;
@@ -28,7 +24,7 @@ typedef struct {
 
  typedef union {
     String opaque;
-    StringValid valid;
+    StringData valid;
     StringError error;
  } StringUnion;
 
@@ -36,7 +32,7 @@ String castOpaque(StringUnion strUnion) {
     return strUnion.opaque;
 }
 
-StringValid *castValid(StringUnion *strUnion) {
+StringData *castData(StringUnion *strUnion) {
     if (strUnion == NULL || strUnion->valid.data == NULL) {
         return NULL;
     }
@@ -44,21 +40,21 @@ StringValid *castValid(StringUnion *strUnion) {
 }
 
 StringError *castError(StringUnion *strUnion) {
-    if (strUnion == NULL) {
-        return NULL;
-    }
+    NULL_GUARD(strUnion, NULL)
+    
     for (u32 i = 0; i <FLAG_SIZE; i++) {
         if (strUnion->error.flag[i]!= 0) {
             return NULL;
         }
     }
+    //invalid because the error variant schuld only be active on error not success. (A SUCCESS here signalizes an 0 initialzed String which is not a valid error.)
+    if (strUnion->error.error == SERVICE_SUCCESS) { 
+        return NULL;
+    }
     return &strUnion->error;
 }
 
 static_assert(sizeof(StringUnion) <= sizeof(String), "Not all String variants fit into the opaque type");
-
-// static_assert(sizeof(StringValid) == sizeof(String), "Unexpected Size of hidden type String. Compiling with mismatching sizes causes UB.");
-// static_assert(sizeof(usize) >= sizeof(ServiceError), "ServiceError doesn't fit inside Strings Handle.");
 
 String createString(const c8 *data, usize length, StringDealloc deallocator) {
     if (data == NULL) {
@@ -73,38 +69,32 @@ String fromErrorString(ServiceError serviceError) {
 
 ServiceError *asErrorString(const String *string) {
     StringError *error = castError((StringUnion *)string);
-    if (error == NULL) {
-        return NULL;
-    }
+    NULL_GUARD(error, NULL)
     return &error->error;
 }
 
 void destroyString(String *string) {
-    StringValid *str = castValid((StringUnion *)string);
-    if (str == NULL) {
-        return;
-    }
+    StringData *str = castData((StringUnion *)string);
+    NULL_GUARD(str,)
+    
     usize tmp_length = str->length;
     str->length = 0;
     const c8 *tmp_data = str->data;
     StringDealloc tmp_fn = str->dealloc_fn;
     str->data = NULL;
     str->dealloc_fn = NULL;
-    if (tmp_fn == NULL) {
-        return;
-    }
+    NULL_GUARD(tmp_fn,)
+
     tmp_fn(tmp_data, tmp_length);
 }
 
 bool isValidString(const String *string) {
-    return castValid((StringUnion *)string) != NULL;
+    return castData((StringUnion *)string) != NULL;
 }
 
 c8 getCharString(const String *string, usize index) {
-    StringValid *str = castValid((StringUnion *)string);
-    if (str == NULL) {
-        return 0;
-    }
+    StringData *str = castData((StringUnion *)string);
+    NULL_GUARD(str, 0)
     if (str->length >= index) {
         return 0;
     }
@@ -113,18 +103,14 @@ c8 getCharString(const String *string, usize index) {
 }
 
 usize getLengthString(const String *string) {
-    StringValid *str = castValid((StringUnion *)string);
-    if (str == NULL) {
-        return 0;
-    }
+    StringData *str = castData((StringUnion *)string);
+    NULL_GUARD(str, 0)
     return str->length;
 }
 
 const c8 *getViewString(const String *string, usize start, usize end) {
-    StringValid *str = castValid((StringUnion *)string);
-    if (str == NULL) {
-        return NULL;
-    }
+    StringData *str = castData((StringUnion *)string);
+    NULL_GUARD(str, NULL)
     if (start >= end || start >= str->length || end > str->length) {
         return NULL;
     }

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use derive_more::Display;
 use finance_together_api::{API_VERSION, EventHandler, ServiceError, cbindings::{CPluginInfo, CUuid}, misc::ApiMiscError};
@@ -9,7 +9,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    governor::get_gov,
+    governor::{GovernorError, get_gov},
     runtime::event::StoredEventHandler,
     util::{ArcMapExt, LockedMap, TrueOrErr},
 };
@@ -105,7 +105,16 @@ impl Loader {
     }
 
     pub fn load_libraries() -> Result<(), LoaderError> {
-        unsafe { Loader::load_library("libexample.so")? };
+        let plugin_folder = get_gov()?.config().config_dir().join("plugins");
+        fs::create_dir_all(&plugin_folder)?;
+        let plugins = plugin_folder.read_dir()?
+                .filter_map(Result::ok)
+                .map(|dir| dir.path())
+                .filter(|entry| entry.is_file())
+                .filter_map(|file| file.into_os_string().into_string().ok());
+        for plugin in plugins {
+            unsafe { Loader::load_library(&plugin)? }
+        }   
         Ok(())
     }
 }
@@ -116,7 +125,9 @@ pub enum LoaderError {
     DuplicateName,
     ApiVersion,
     InvalidName,
+    IO(#[from]std::io::Error),
     LibError(#[from]libloading::Error),
     ServiceError(#[from]ServiceError),
-    ApiMiscError(#[from]ApiMiscError)
+    ApiMiscError(#[from]ApiMiscError),
+    Governor(#[from]GovernorError)
 }

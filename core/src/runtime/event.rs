@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash, sync::Arc};
+use std::{collections::HashSet, hash::Hash};
 
 use finance_together_api::{
     ErrorMapper, EventHandler, ServiceError,
@@ -28,7 +28,7 @@ pub type Events = LockedMap<Box<str>, Event>;
 #[derive(Clone)]
 pub struct Event {
     pub handlers: HashSet<StoredEventHandler>,
-    argument_validator: Arc<Validator>,
+    argument_validator: Validator,
     plugin_id: Uuid,
 }
 
@@ -36,7 +36,7 @@ impl Event {
     pub fn new(argument_validator: Validator, plugin_id: Uuid) -> Self {
         Self {
             handlers: HashSet::new(),
-            argument_validator: Arc::new(argument_validator),
+            argument_validator,
             plugin_id,
         }
     }

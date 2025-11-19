@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc, time::Duration};
+use std::{borrow::Cow, time::Duration};
 
 use chrono::{SecondsFormat, Utc};
 use finance_together_api::{
@@ -27,8 +27,8 @@ pub type Endpoints = LockedMap<Box<str>, Endpoint>;
 #[derive(Clone)]
 pub struct Endpoint {
     request_handler: RequestHandlerFuncUnsafeFP,
-    argument_validator: Arc<Validator>,
-    response_validator: Arc<Validator>,
+    argument_validator: Validator,
+    response_validator: Validator,
     plugin_id: Uuid,
 }
 
@@ -41,8 +41,8 @@ impl Endpoint {
     ) -> Self {
         Self {
             request_handler,
-            argument_validator: Arc::new(argument_validator),
-            response_validator: Arc::new(response_validator),
+            argument_validator,
+            response_validator,
             plugin_id,
         }
     }

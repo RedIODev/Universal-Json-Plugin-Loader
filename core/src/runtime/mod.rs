@@ -8,9 +8,8 @@ use std::{
 };
 
 use crate::{
-    GOV,
     config::{Config, ConfigError},
-    governor::{GovernorError, get_gov},
+    governor::{GOV, GovernorError, get_gov},
     loader::{Loader, LoaderError},
     runtime::{
         endpoint::{EndpointRegister, EndpointRequest, EndpointUnregister},
@@ -96,10 +95,16 @@ impl Runtime {
     }
 
     pub fn restart() -> Result<(), RuntimeError> {
+        let mut old_config_dir = None;
         if let Some(gov) = &*GOV.load() {
             gov.runtime().event_pool.join();
+            old_config_dir.clone_from(&Some(Box::from(gov.config().config_dir())));
         }
+        
         GOV.rcu(|_| Some(Arc::default()));
+        if let Some(dir) = old_config_dir {
+            Config::set_config_dir(dir)?;
+        }
         Runtime::start()
     }
 
@@ -112,11 +117,7 @@ impl Runtime {
 
     pub fn park() -> Result<PowerState, RuntimeError> {
         std::thread::park();
-        {
-            // Mutex start
-            let gov = get_gov()?;
-            Ok(gov.runtime().check_and_reset_power())
-        } // Mutex end
+        Ok(get_gov()?.runtime().check_and_reset_power())
     }
 
     pub fn core_id(&self) -> Uuid {

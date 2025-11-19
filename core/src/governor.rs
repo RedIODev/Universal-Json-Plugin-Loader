@@ -1,11 +1,11 @@
-use std::{marker::PhantomData, sync::{Arc, LazyLock}};
+use std::{marker::PhantomData, sync::Arc};
 
 use crate::{
-    GOV, config::{Config, cli::{Cli, CliParser}}, loader::Loader, runtime::{
+    config::{Config, cli::{Cli, CliParser}}, loader::Loader, runtime::{
         Runtime, endpoint::{Endpoint, Endpoints, register_core_endpoints}, event::{Event, Events, register_core_events}
-    }, util::{GuardExt, LockedMap, MappedGuard}
+    }, util::{GuardExt, LazyInit, LockedMap, MappedGuard}
 };
-use arc_swap::ArcSwap;
+use arc_swap::{ArcSwap, ArcSwapOption};
 use clap::Parser;
 use derive_more::Display;
 use thiserror::Error;
@@ -16,7 +16,7 @@ pub struct Governor {
     endpoints: LockedMap<Box<str>, Endpoint>,
     runtime: Runtime,
     config: Config,
-    cli: LazyLock<Cli>
+    cli: LazyInit<Cli>
 }
 
 pub type GovernorReadGuard = MappedGuard<Option<Arc<Governor>>, Arc<Governor>>;
@@ -26,7 +26,7 @@ pub fn get_gov() -> Result<GovernorReadGuard, GovernorError> {
         .try_map(|g| g.as_ref().map(Arc::clone).ok_or(GovernorError))
 }
 
-
+pub (super) static GOV: ArcSwapOption<Governor> = ArcSwapOption::const_empty();
 
 ///
 /// Should only be created in main of this binary once.
@@ -55,7 +55,7 @@ impl Default for Governor {
             endpoints: ArcSwap::default(),
             runtime,
             config: Config::default(),
-            cli: LazyLock::new(|| CliParser::parse().into())
+            cli: LazyInit::new(|| CliParser::parse().into())
         };
         register_core_endpoints(gov.endpoints(), gov.runtime().core_id());
         register_core_events(gov.events(), gov.runtime().core_id());
@@ -86,7 +86,7 @@ impl Governor {
     }
 
     pub fn cli(&self) -> &Cli {
-        &self.cli
+        self.cli.get()
     }
 }
 
