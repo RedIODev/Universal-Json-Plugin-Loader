@@ -11,5 +11,5 @@ convert_case = "0.9.0"
 [lib]
 proc-macro = true
 
-[lints.clippy]
-pedantic = "warn"
+[lints]
+workspace = true

@@ -31,5 +31,5 @@ clap = { version = "4.5.49", features = ["derive", "cargo"] }
 plugin-loader-api = { path = "../api", features = ["safe", "unsafe"] }
 
 
-[lints.clippy]
-pedantic = "warn"
+[lints]
+workspace = true

@@ -24,5 +24,5 @@ crate-type = ["staticlib", "lib"]
 unsafe = []
 safe = ["dep:uuid", "dep:proc-macros"]
 
-[lints.clippy]
-pedantic = "warn"
+[lints]
+workspace = true
