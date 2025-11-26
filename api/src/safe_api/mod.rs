@@ -32,13 +32,13 @@ use crate::safe_api::pointer_traits::{
 ///
 /// This trait should be implemented by types where an error state can be converted into a `Result` of some type `T` and an appropriate `ServiceError`.
 ///
-/// When converting into a `Result<T,ServiceError>` using the `error` function the implementation should print an error message to `std::error` when `debug_assertions are enabled`.
+/// When converting into a `Result<T,ServiceError>` using the `error` function the implementation should print an error message to `std_error` when `debug_assertions are enabled`.
 /// This trait is mainly design as an extension trait for Result and Option. To conveniently convert various errors into a debug print and the appropriate Api `ServiceError`.
 ///
 pub trait ErrorMapper<T> {
     ///
     /// Takes self and the requested `ServiceError` and converts it into a `Result` of the value `T` and the requested error.
-    /// Like in the trait definition mention this function should print details to `std::error` when `debug_assertions` are enabled.
+    /// Like in the trait definition mention this function should print details to `std_error` when `debug_assertions` are enabled.
     ///
     /// # Errors
     /// When the value of self cannot be converted into a value of `T` the function returns the supplied `ServiceError`.

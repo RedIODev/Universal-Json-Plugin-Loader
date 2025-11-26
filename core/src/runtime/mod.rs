@@ -1,10 +1,12 @@
+extern crate alloc;
 pub mod endpoint;
 pub mod event;
 
+use core::{num::NonZero, sync::atomic::Ordering};
+use alloc::sync::Arc;
+
 use std::{
-    num::NonZero,
-    sync::{Arc, atomic::Ordering},
-    thread::Thread,
+    thread::{self, Thread},
 };
 
 use crate::{
@@ -53,9 +55,9 @@ impl Default for Runtime {
         Self {
             core_id: Uuid::new_v4(),
             power_state: AtomicPowerState::new(PowerState::Running),
-            main_handle: std::thread::current(),
+            main_handle: thread::current(),
             event_pool: ThreadPool::new(
-                std::thread::available_parallelism()
+                thread::available_parallelism()
                     .unwrap_or(NonZero::<usize>::MIN)
                     .into(),
             ),
@@ -116,7 +118,7 @@ impl Runtime {
     }
 
     pub fn park() -> Result<PowerState, RuntimeError> {
-        std::thread::park();
+        thread::park();
         Ok(get_gov()?.runtime().check_and_reset_power())
     }
 

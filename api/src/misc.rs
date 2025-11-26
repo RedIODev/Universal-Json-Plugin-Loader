@@ -1,9 +1,9 @@
-use std::str::Utf8Error;
+use core::{str::{self, Utf8Error}, slice};
 
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::{ErrorMapper, ServiceError, cbindings::{
+use crate::{ErrorMapper as _, ServiceError, cbindings::{
     CApiVersion, CEventHandler, CList_String, CServiceError, CString, CUuid, asErrorString, createListString, createString, destroyListString, destroyString, emptyListString, fromErrorString, getLengthString, getViewString, isValidListString, isValidString
 }};
 
@@ -39,8 +39,8 @@ impl CString {
         }
         let len = unsafe { getLengthString(self) };
         let ptr = unsafe { getViewString(self, 0, len) };
-        Ok(std::str::from_utf8(unsafe {
-            std::slice::from_raw_parts(ptr, len)
+        Ok(str::from_utf8(unsafe {
+            slice::from_raw_parts(ptr, len)
         })?)
     }
 }
@@ -91,8 +91,8 @@ impl<T: Into<Box<str>>> From<T> for CString {
 }
 
 unsafe extern "C" fn drop_string(str: *const u8, length: usize) {
-    let slice = unsafe { std::slice::from_raw_parts_mut(str.cast_mut(), length) };
-    let string = unsafe { std::str::from_utf8_unchecked_mut(slice) };
+    let slice = unsafe { slice::from_raw_parts_mut(str.cast_mut(), length) };
+    let string = unsafe { str::from_utf8_unchecked_mut(slice) };
     let owned = unsafe { Box::from_raw(string) };
     drop(owned);
 }
@@ -125,7 +125,7 @@ impl CList_String {
         if self.data.is_null() {
             return Ok(Vec::new());
         }
-        let slice = unsafe { std::slice::from_raw_parts(self.data, self.length as usize) };
+        let slice = unsafe { slice::from_raw_parts(self.data, self.length as usize) };
         slice
             .iter()
             .map(CString::as_str)
@@ -153,7 +153,7 @@ where
 }
 
 unsafe extern "C" fn drop_list_string(list: *mut CString, length: u32) {
-    let slice = unsafe { std::slice::from_raw_parts_mut(list, length as usize) };
+    let slice = unsafe { slice::from_raw_parts_mut(list, length as usize) };
     let owned = unsafe { Box::from_raw(slice) };
     drop(owned);
 }

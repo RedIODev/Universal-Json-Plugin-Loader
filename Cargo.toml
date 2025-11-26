@@ -9,9 +9,12 @@ restriction = {level = "warn", priority = -1}
 nursery = {level = "warn", priority = -1}
 cargo = {level = "warn", priority = -1}
 
+blanket_clippy_restriction_lints = "allow"
+
 mod_module_files = "allow"
 implicit_return = "allow"
 pattern_type_mismatch = "allow"
 missing_docs_in_private_items = "allow"
 question_mark_used = "allow"
 missing_trait_methods = "allow"
+pub_use = "allow"

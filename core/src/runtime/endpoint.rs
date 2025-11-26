@@ -1,5 +1,7 @@
-use std::{borrow::Cow, time::Duration};
-
+extern crate alloc;
+use core::time::Duration;
+use std::thread;
+use alloc::borrow::Cow;
 use chrono::{SecondsFormat, Utc};
 use plugin_loader_api::{
     ApplicationContext, ErrorMapper, ServiceError,
@@ -124,7 +126,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
     }
 
     if let Some(delay) = args.delay {
-        std::thread::sleep(Duration::from_millis(delay.into()));
+        thread::sleep(Duration::from_millis(delay.into()));
     }
 
     if let PowerState::Cancel = get_gov().error(CoreInternalError)?.runtime().check_and_reset_power() {

@@ -1,5 +1,9 @@
-use std::{marker::PhantomData, sync::Arc};
+extern crate alloc;
 
+use core::{marker::PhantomData};
+
+
+use alloc::sync::Arc;
 use crate::{
     config::{Config, cli::{Cli, CliParser}}, loader::Loader, runtime::{
         Runtime, endpoint::{Endpoint, Endpoints, register_core_endpoints}, event::{Event, Events, register_core_events}

@@ -1,12 +1,12 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use arc_swap::{ArcSwap, Guard, RefCnt};
 use plugin_loader_api::ServiceError;
 use im::{HashMap, HashSet, Vector};
 use lazy_init::LazyTransform;
 use ouroboros::self_referencing;
-use std::hash::Hash;
-
+use core::hash::Hash;
+use std::collections;
 
 pub type LockedMap<K, V> = ArcSwap<HashMap<K, V>>;
 pub type LockedVec<T> = ArcSwap<Vector<T>>;
@@ -88,7 +88,7 @@ pub trait MapExt<K,V> {
     fn join_merge<F>(self, other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V; 
 }
 
-impl<K: Hash + Eq + Clone,V> MapExt<K,V> for std::collections::HashMap<K,V> {
+impl<K: Hash + Eq + Clone,V> MapExt<K,V> for collections::HashMap<K,V> {
     fn join_merge<F>(mut self, mut other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V {
         self.keys()
             .chain(other.keys())

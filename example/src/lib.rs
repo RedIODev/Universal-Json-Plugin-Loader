@@ -1,5 +1,7 @@
+extern crate alloc;
+use alloc::borrow::Cow;
+
 use std::{
-    borrow::Cow,
     io::{Write, stdin, stdout},
     sync::{Arc, atomic::Ordering},
     thread,

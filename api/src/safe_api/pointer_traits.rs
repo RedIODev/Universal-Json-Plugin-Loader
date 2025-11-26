@@ -1,23 +1,23 @@
-#![allow(clippy::must_use_candidate)]
+#![allow(clippy::must_use_candidate, reason = "many false positives in this module")]
+#![allow(clippy::undocumented_unsafe_blocks, reason = "all undocumented unsafe blocks in this module are calling defined C-Apis")]
 
-use std::borrow::Cow;
+extern crate alloc;
+
+use alloc::borrow::Cow;
 
 use uuid::Uuid;
 
 use crate::{
-    ErrorMapper, cbindings::{
+    ErrorMapper as _, cbindings::{
         CApplicationContext, CContextSupplier, CEventHandler, CEventHandlerFP,
         CServiceError, CString, CUuid,
-    }, misc::ToCString, safe_api::{ApplicationContext, EventHandler, ServiceError}
+    }, misc::ToCString as _, safe_api::{ApplicationContext, EventHandler, ServiceError}
 };
 
 pub use proc_macros::*;
 
 #[fn_trait]
 pub trait ContextSupplier {
-    #[sig]
-    fn supply() -> ApplicationContext;
-
     ///
     ///
     /// # Safety
@@ -25,11 +25,17 @@ pub trait ContextSupplier {
     /// It is safe to call with valid arguments and does the same as [`ContextSupplier::supply`].
     ///
     #[adapter]
+    #[inline]
     unsafe extern "C" fn adapter() -> CApplicationContext {
         Self::supply().to_c()
     }
 
+    #[sig]
+    fn supply() -> ApplicationContext;
+
+
     #[fp_adapter]
+    #[inline]
     fn to_safe_fp(
         self: ContextSupplierUnsafeFP,
     ) -> impl Fn() -> Result<ApplicationContext, ServiceError> {
@@ -39,9 +45,6 @@ pub trait ContextSupplier {
 
 #[fn_trait]
 pub trait EventHandlerFunc {
-    #[sig]
-    fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) -> Result<(), ServiceError>;
-
     ///
     ///
     /// # Safety
@@ -49,6 +52,7 @@ pub trait EventHandlerFunc {
     /// It is safe to call with valid arguments and does the same as [`EventHandlerFunc::handle`].
     ///
     #[adapter]
+    #[inline]
     unsafe extern "C" fn adapter(context: CContextSupplier, args: CString) {
         fn adapter_inner<T:EventHandlerFunc + ?Sized>(context: CContextSupplier, args: &CString) -> Result<(), ServiceError> {
             let context = context.error(ServiceError::NullFunctionPointer)?
@@ -59,6 +63,10 @@ pub trait EventHandlerFunc {
 
         adapter_inner::<Self>(context, &args).expect("Handler encountered an error!");
     }
+    
+    #[sig]
+    fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) -> Result<(), ServiceError>;
+
 
     #[fp_adapter]
     fn to_safe_fp<C: ContextSupplier, S: Into<CString>>(

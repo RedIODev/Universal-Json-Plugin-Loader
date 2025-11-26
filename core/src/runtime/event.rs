@@ -1,5 +1,5 @@
-use std::{collections::HashSet, hash::Hash};
-
+use std::{collections::HashSet};
+use core::hash::{Hash, Hasher};
 use plugin_loader_api::{
     ErrorMapper, EventHandler, ServiceError,
     pointer_traits::{
@@ -49,7 +49,7 @@ pub struct StoredEventHandler {
 }
 
 impl Hash for StoredEventHandler {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.plugin_id.hash(state);
     }
 }

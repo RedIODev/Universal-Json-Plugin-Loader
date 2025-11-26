@@ -1,4 +1,4 @@
-use std::{fmt::Display, mem::MaybeUninit};
+use core::{fmt::Display, mem::MaybeUninit, array, fmt};
 
 use proc_macro::{Span, TokenStream};
 use quote::quote;
@@ -125,6 +125,7 @@ fn sig_getter(sig_func: &TraitItemFn, sig_fn_type: &TypeBareFn) -> TraitItem {
     let sig_func_name = &sig_func.sig.ident;
     let sig_getter_name = Ident::new(&format!("{}_fp", sig_func.sig.ident), Span::call_site().into());
     parse_quote! {
+        #[inline]
         fn #sig_getter_name #sig_generics () -> #sig_fn_type {
             Self:: #sig_func_name
         }
@@ -143,6 +144,7 @@ fn adapter_getter(adapter_func: &TraitItemFn, adapter_fn_type: &TypeBareFn) ->Tr
     });
     let call_site_generics = call_site_generics.params;
     parse_quote! {
+        #[inline]
         fn #adapter_getter_name #adapter_generics () -> #adapter_fn_type {
             Self:: #adapter_func_name ::<#call_site_generics>
         }
@@ -205,7 +207,7 @@ impl<T, const N:usize> FromIterator<T> for ArrayCollector<T, N> {
         // In case the iterator ends before N elements got initialized the first i elements that are init get droped.
         // If the iterator contains more then N elements all elements in result get droped.
         // Once the iter is empty and N(all) elements in the array got initialized it is safe to map all elements with assume_init.
-        let mut result = std::array::from_fn::<_, N,_>(|_| MaybeUninit::<T>::uninit());
+        let mut result = array::from_fn::<_, N,_>(|_| MaybeUninit::<T>::uninit());
         let mut iter = iter.into_iter();
         for i in 0..N {
             let item = iter.next();
@@ -232,7 +234,7 @@ enum ArrayBoundsError {
 }
 
 impl Display for ArrayBoundsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ArrayBoundsError::Only(only, from) => write!(f, "Expected {from} element(s), found {only}."),
             ArrayBoundsError::MoreThan(from) => write!(f, "Expected {from} elements, found {} or more.", from+1)

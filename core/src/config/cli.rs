@@ -101,7 +101,7 @@ impl PluginOption {
 impl FromStr for PluginOption {
     type Err = CliError;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (plugin_name, option) = s.split_once(':').ok_or(CliError::NoPluginPrefix)?;
         let (option_key, option_value) = option.split_once('=').ok_or(CliError::NoValue)?;
         Ok(PluginOption {

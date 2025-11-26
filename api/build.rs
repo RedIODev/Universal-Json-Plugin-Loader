@@ -1,7 +1,10 @@
-use std::{path::PathBuf, str::FromStr};
+#![allow(clippy::expect_used, reason = "build script.")]
+
+use std::{path::PathBuf, };
+use core::str::FromStr as _;
 
 use bindgen_helpers::{Renamer,
-    callbacks::{ItemKind, ParseCallbacks},
+    callbacks::{ItemKind, ParseCallbacks, DeriveInfo},
     rename_enum,
 };
 
@@ -10,7 +13,7 @@ struct CPrefix;
 
 impl ParseCallbacks for CPrefix {
     fn item_name(&self, item_info: bindgen_helpers::callbacks::ItemInfo) -> Option<String> {
-        if let ItemKind::Type = item_info.kind {
+        if matches!(item_info.kind, ItemKind::Type) {
             return Some(format!("C{}", item_info.name));
         }
         None
@@ -21,9 +24,9 @@ impl ParseCallbacks for CPrefix {
 struct CloneDerive;
 
 impl ParseCallbacks for CloneDerive {
-    fn add_derives(&self, info: &bindgen_helpers::callbacks::DeriveInfo<'_>) -> Vec<String> {
+    fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
         if info.name == "CApiVersion" {
-            return vec!["Clone".to_string()];
+            return vec!["Clone".to_owned()];
         }
         vec![]
     }
@@ -51,6 +54,7 @@ fn main() {
     );
 
     let bindings = bindgen_helpers::Builder::default()
+        .use_core()
         .header("./src/capi/header/ft_api.h")
         .parse_callbacks(Box::new(bindgen_helpers::CargoCallbacks::new()))
         .derive_copy(false)

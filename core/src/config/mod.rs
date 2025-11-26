@@ -1,12 +1,11 @@
+extern crate alloc;
+
 pub mod cli;
 
+use alloc::{borrow::Cow, sync::Arc};
+use core::str::FromStr as _;
 use std::{
-    borrow::Cow,
-    collections::HashMap,
-    fs,
-    path::Path,
-    str::FromStr,
-    sync::Arc,
+    collections::HashMap, env, fs, io, path::Path
 };
 
 use atomic_once_cell::AtomicOnceCell;
@@ -84,13 +83,13 @@ impl Config {
     }
 
     fn read_config(path: &Path) -> Result<Table, ConfigError> {
-        let config = std::fs::read_to_string(path)?;
+        let config = fs::read_to_string(path)?;
         Ok(toml::from_str(&config)?)
     }
 
     fn parse_env() -> Result<Vec<PluginOption>, ConfigError> {
         let prefix = get_gov()?.config().env_prefix()?;
-        Ok(std::env::vars()
+        Ok(env::vars()
             .filter_map(|(key, value)| key.strip_prefix(&*prefix).map(|key| format!("{key}={value}")))
             .map(|arg| PluginOption::from_str(&arg))
             .collect::<Result<Vec<_>, cli::CliError>>()?)
@@ -173,7 +172,7 @@ fn save_config(plugin_name: &str, key: String, value: toml::Value) -> Result<Str
             .with_extension(".toml");
     let mut file_conf = Config::read_config(&filepath).error(ServiceError::CoreInternalError)?;
     file_conf.insert(key, value);
-    std::fs::write(&filepath, 
+    fs::write(&filepath, 
         toml::to_string(&file_conf)
                     .error(ServiceError::CoreInternalError)?)
             .error(ServiceError::CoreInternalError)?;
@@ -192,6 +191,6 @@ pub enum ConfigError {
     InvalidFileName,
     CliError(#[from] CliError),
     GovernorError(#[from] GovernorError),
-    IOError(#[from] std::io::Error),
+    IOError(#[from] io::Error),
     DeserializeError(#[from] toml::de::Error),
 }

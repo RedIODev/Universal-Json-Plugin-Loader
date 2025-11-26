@@ -1,10 +1,11 @@
-use std::{fs, sync::Arc};
-
+extern crate alloc;
+use std::{fs};
+use alloc::sync::Arc;
 use derive_more::Display;
 use plugin_loader_api::{API_VERSION, EventHandler, ServiceError, cbindings::{CPluginInfo, CUuid}, misc::ApiMiscError};
 use libloading::{Library, Symbol};
 
-
+use std::io;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -125,7 +126,7 @@ pub enum LoaderError {
     DuplicateName,
     ApiVersion,
     InvalidName,
-    IO(#[from]std::io::Error),
+    IO(#[from]io::Error),
     LibError(#[from]libloading::Error),
     ServiceError(#[from]ServiceError),
     ApiMiscError(#[from]ApiMiscError),
