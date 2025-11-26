@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::str::FromStr;
+use core::str::FromStr;
 
 use clap::Parser;
 use derive_more::Display;
@@ -9,7 +9,7 @@ use toml::Table;
 use toml::Value as TomlValue;
 
 use crate::util::LockedVec;
-use crate::util::ResultFlatten;
+use crate::util::ResultFlatten as _;
 
 #[derive(Parser, Debug)]
 #[command(version)]

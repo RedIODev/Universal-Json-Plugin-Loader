@@ -4,10 +4,10 @@ use std::thread;
 use alloc::borrow::Cow;
 use chrono::{SecondsFormat, Utc};
 use plugin_loader_api::{
-    ApplicationContext, ErrorMapper, ServiceError,
+    ApplicationContext, ErrorMapper as _, ServiceError,
     pointer_traits::{
         EndpointRegisterService, EndpointRequestService, EndpointUnregisterService,
-        EventTriggerService, RequestHandlerFunc, RequestHandlerFuncFPAdapter,
+        EventTriggerService as _, RequestHandlerFunc, RequestHandlerFuncFPAdapter as _,
         RequestHandlerFuncUnsafeFP, trait_fn,
     },
 };

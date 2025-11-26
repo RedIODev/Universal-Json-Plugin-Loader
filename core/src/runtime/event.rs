@@ -1,7 +1,7 @@
 use std::{collections::HashSet};
 use core::hash::{Hash, Hasher};
 use plugin_loader_api::{
-    ErrorMapper, EventHandler, ServiceError,
+    ErrorMapper as _, EventHandler, ServiceError,
     pointer_traits::{
         EventHandlerFuncUnsafeFP, EventHandlerRegisterService,
         EventHandlerUnregisterService, EventRegisterService, EventTriggerService,
@@ -18,7 +18,7 @@ use crate::{
     governor::get_gov,
     loader::Plugin,
     runtime::{ContextSupplierImpl, PowerState, schema_from_file},
-    util::{ArcMapExt, LockedMap, TrueOrErr},
+    util::{ArcMapExt as _, LockedMap, TrueOrErr as _},
 };
 
 use ServiceError::CoreInternalError;

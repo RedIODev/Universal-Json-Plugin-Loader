@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     governor::{GovernorError, get_gov},
     runtime::event::StoredEventHandler,
-    util::{ArcMapExt, LockedMap, TrueOrErr},
+    util::{ArcMapExt as _, LockedMap, TrueOrErr as _},
 };
 
 pub type Plugins = LockedMap<Uuid, Plugin>;

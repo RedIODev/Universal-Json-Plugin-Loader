@@ -13,7 +13,7 @@ use clap::Args;
 use convert_case::{Boundary, Case};
 use derive_more::Display;
 use plugin_loader_api::{
-    ApplicationContext, ErrorMapper, ServiceError,
+    ApplicationContext, ErrorMapper as _, ServiceError,
     pointer_traits::{RequestHandlerFunc, trait_fn},
 };
 use serde::Deserialize;
@@ -24,7 +24,7 @@ use toml::Table;
 use crate::{
     config::cli::{CliError, PluginOption},
     governor::{GovernorError, get_gov},
-    util::{LockedMap, MapExt},
+    util::{LockedMap, MapExt as _},
 };
 
 pub type ConfigMap = LockedMap<Box<str>, Table>;

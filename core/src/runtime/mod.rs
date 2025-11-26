@@ -24,7 +24,7 @@ use crate::{
 use atomic_enum::atomic_enum;
 use derive_more::Display;
 use plugin_loader_api::{
-    ApplicationContext, ServiceError, pointer_traits::{ContextSupplier, EventTriggerService, trait_fn}
+    ApplicationContext, ServiceError, pointer_traits::{ContextSupplier, EventTriggerService as _, trait_fn}
 };
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};

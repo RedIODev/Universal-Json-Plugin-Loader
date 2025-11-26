@@ -7,10 +7,10 @@ use alloc::sync::Arc;
 use crate::{
     config::{Config, cli::{Cli, CliParser}}, loader::Loader, runtime::{
         Runtime, endpoint::{Endpoint, Endpoints, register_core_endpoints}, event::{Event, Events, register_core_events}
-    }, util::{GuardExt, LazyInit, LockedMap, MappedGuard}
+    }, util::{GuardExt as _, LazyInit, LockedMap, MappedGuard}
 };
 use arc_swap::{ArcSwap, ArcSwapOption};
-use clap::Parser;
+use clap::Parser as _;
 use derive_more::Display;
 use thiserror::Error;
 
