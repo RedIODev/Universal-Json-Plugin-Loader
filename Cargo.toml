@@ -3,6 +3,7 @@ resolver = "3"
 members = ["core", "api", "example", "proc-macros"]
 
 [workspace.lints.clippy]
+all = {level = "warn", priority = -1}
 pedantic = {level = "warn", priority = -1}
 restriction = {level = "warn", priority = -1}
 nursery = {level = "warn", priority = -1}
