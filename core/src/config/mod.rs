@@ -137,7 +137,7 @@ struct ConfigArgs {
 }
 
 #[trait_fn(RequestHandlerFunc for ConfigRequestHandler)]
-pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef<str>>(
+pub fn handle<'args, F: Fn() -> Result<ApplicationContext, ServiceError>, S: Into<Cow<'args, str>>, T: AsRef<str>>(
     _: F,
     plugin_name: T,
     args: S,

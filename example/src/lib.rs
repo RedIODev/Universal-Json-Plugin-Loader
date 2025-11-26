@@ -47,7 +47,7 @@ static POWER: AtomicMyPow = AtomicMyPow::new(MyPow::None);
 static UUID: ArcSwapOption<Uuid> = ArcSwapOption::const_empty();
 
 #[trait_fn(EventHandlerFunc for PowerListener)]
-fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
+fn handle<'a, F: Fn() -> Result<ApplicationContext, ServiceError>, S: Into<Cow<'a, str>>>(
     context: F,
     args: S,
 ) -> Result<(), ServiceError> {
@@ -55,18 +55,18 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(
     POWER.store(args.command, Ordering::Relaxed);
     if args.delay.is_some() {
         let uuid = **UUID.load().as_ref().error(ServiceError::PluginInternalError)?;
-        context().endpoint_request("core:power", uuid, json!({"command": "cancel"}).to_string())?;
+        context()?.endpoint_request("core:power", uuid, json!({"command": "cancel"}).to_string())?;
         println!("canceled shutdown");
     }
     Ok(())
 }
 
 #[trait_fn(EventHandlerFunc for InitTest)]
-fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, args: S) -> Result<(), ServiceError> {
+fn handle<'a, F: Fn() -> Result<ApplicationContext, ServiceError>, S: Into<Cow<'a, str>>>(context: F, args: S) -> Result<(), ServiceError> {
     
         println!("Plugin: Init: Test from plugin! Args:{}", args.into());
         let uuid = **UUID.load().as_ref().error(ServiceError::PluginInternalError)?;
-        context().register_event_handler::<PowerListener,_>(uuid, "core:power")?;
+        context()?.register_event_handler::<PowerListener,_>(uuid, "core:power")?;
         println!("before while loop with {:?}", POWER.load(Ordering::Relaxed));
         while POWER.load(Ordering::Relaxed) < MyPow::Shutdown {
             let mut input = String::new();
@@ -79,7 +79,7 @@ fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>>(context: F, 
             } else {
                 json!({"command": input.trim()}).to_string()
             };
-            match context().endpoint_request("core:power", uuid, args) {
+            match context()?.endpoint_request("core:power", uuid, args) {
                 Ok(response) => println!("Response:{response}"),
                 Err(err) => println!("RequestError:{err}")
             }

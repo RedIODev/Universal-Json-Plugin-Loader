@@ -1,6 +1,12 @@
 [package]
 name = "example"
 version = "0.1.0"
+repository = "todo!"
+description = "example crate showcasing how a plugin is created."
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["example", "trait_fn", "fn_trait", "plugin-loader"]
+categories = []
 edition = "2024"
 
 [dependencies]

@@ -1,12 +1,18 @@
 [package]
 name = "proc-macros"
 version = "0.1.0"
+repository = "todo!"
+description = "Helper crate containing proc-macros related to the plugin-loader"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["proc-macros", "trait_fn", "fn_trait", "plugin-loader"]
+categories = ["data-structures", "rust-patterns"]
 edition = "2024"
 
 [dependencies]
 syn = "2.0.108"
 quote = "1.0.41"
-convert_case = "0.9.0"
+convert_case = "0.10.0"
 
 [lib]
 proc-macro = true

@@ -2,25 +2,25 @@
 #define FT_LIST_H
 
 #define CREATE_LIST_TYPE_HEADER(TYPE) \
-typedef void (*TYPE##ListDeallocFP)(TYPE *, u32);\
+typedef void (*TYPE##ListDeallocFP)(TYPE *, usize);\
 typedef struct { \
     TYPE##ListDeallocFP dealloc_fn;\
     TYPE *data;\
-    u32 length; \
+    usize length; \
 } List_##TYPE; \
 \
 bool isValidList##TYPE(const List_##TYPE *);\
 \
-List_##TYPE createList##TYPE(TYPE *data, u32 length, TYPE##ListDeallocFP dealloc_fn);\
+List_##TYPE createList##TYPE(TYPE *data, usize length, TYPE##ListDeallocFP dealloc_fn);\
 \
 void destroyList##TYPE(List_##TYPE *list);\
 \
-TYPE *getList##TYPE(List_##TYPE *list, u32 index);\
+TYPE *getList##TYPE(List_##TYPE *list, usize index);\
 \
 List_##TYPE emptyList##TYPE();
 
 #define CREATE_LIST_TYPE_IMPL(TYPE) \
-void TYPE##no_op(TYPE *, u32) {} \
+void TYPE##no_op(TYPE *, usize) {} \
 \
 bool isValidList##TYPE(const List_##TYPE *list) { \
     if (list == NULL) { \
@@ -29,7 +29,7 @@ bool isValidList##TYPE(const List_##TYPE *list) { \
     return (list->data == NULL) == (list->length == 0); \
 } \
 \
-List_##TYPE createList##TYPE(TYPE *data, u32 length, TYPE##ListDeallocFP dealloc_fn) {\
+List_##TYPE createList##TYPE(TYPE *data, usize length, TYPE##ListDeallocFP dealloc_fn) {\
     if (data == NULL && length != 0) { \
         return (List_##TYPE) {data: NULL, length: 1, dealloc_fn: TYPE##no_op}; \
     } \
@@ -52,7 +52,7 @@ void destroyList##TYPE(List_##TYPE *list) { \
     tmp_fn(tmp_data, tmp_length); \
 } \
 \
-TYPE *getList##TYPE(List_##TYPE *list, u32 index) { \
+TYPE *getList##TYPE(List_##TYPE *list, usize index) { \
     if (!isValidList##TYPE(list)) { \
         return NULL; \
     } \

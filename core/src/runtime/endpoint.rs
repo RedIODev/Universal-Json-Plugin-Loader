@@ -55,7 +55,7 @@ pub fn register_core_endpoints(endpoints: &Endpoints, core_id: Uuid) {
     new_endpoints.insert(
         "core:power".into(),
         Endpoint::new(
-            CorePowerHandler::adapter_fp(),
+            CorePowerHandler::c_handle_fp(),
             schema_from_file(include_str!("../../endpoint/power-args.json")),
             schema_from_file(include_str!("../../endpoint/power-resp.json")),
             core_id
@@ -64,7 +64,7 @@ pub fn register_core_endpoints(endpoints: &Endpoints, core_id: Uuid) {
     new_endpoints.insert(
         "core:config".into(),
         Endpoint::new(
-            ConfigRequestHandler::adapter_fp(),
+            ConfigRequestHandler::c_handle_fp(),
             schema_from_file(include_str!("../../endpoint/config-args.json")),
             schema_from_file(include_str!("../../endpoint/config-resp.json")),
             core_id
@@ -88,7 +88,7 @@ struct PowerArgs {
 }
 
 #[trait_fn(RequestHandlerFunc for CorePowerHandler)]
-pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef<str>>(
+pub fn handle<'args, F: Fn() -> Result<ApplicationContext, ServiceError>, S: Into<Cow<'args, str>>, T: AsRef<str>>(
     context_supplier: F,
     _: T,
     args: S,
@@ -99,7 +99,7 @@ pub fn handle<'a, F: Fn() -> ApplicationContext, S: Into<Cow<'a, str>>, T: AsRef
         _ => {}
     }
     let core_id = get_gov().error(CoreInternalError)?.runtime().core_id();
-    let context = context_supplier();
+    let context = context_supplier()?;
     let utc_now = Utc::now();
     let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
     if let Some(delay) = args.delay {

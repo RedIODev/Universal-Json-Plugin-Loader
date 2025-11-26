@@ -1,4 +1,11 @@
+
 pub mod pointer_traits;
+
+extern crate alloc;
+use alloc::format;
+use alloc::string::String;
+use alloc::vec::Vec;
+
 
 use core::{
     any,
@@ -10,10 +17,10 @@ use derive_more::Display;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::cbindings::{
+use crate::{CUuid, cbindings::{
     CApiVersion, CApplicationContext, CEventHandler, CList_String, CPluginInfo, CServiceError,
     CString,
-};
+}};
 use crate::misc::ApiMiscError;
 use crate::safe_api::pointer_traits::{
     ContextSupplier, EndpointRegisterService, EndpointRegisterServiceFPAdapter as _,
@@ -50,13 +57,13 @@ impl<T> ErrorMapper<T> for Option<T> {
     #[inline(always)]
     #[expect(
         clippy::inline_always,
-        clippy::print_stderr,
         reason = "config assertion wrapper. Should be inlined."
     )]
     fn error(self, error: ServiceError) -> Result<T, ServiceError> {
         #[cfg(debug_assertions)]
         if self.is_none() {
             use cli_colors::Colorizer;
+            use libc_print::libc_eprintln as eprintln;
 
             let colorizer = Colorizer::new();
             let line = colorizer.blue(format!(
@@ -76,13 +83,13 @@ where
     #[inline(always)]
     #[expect(
         clippy::inline_always,
-        clippy::print_stderr,
         reason = "config assertion wrapper. Should be inlined."
     )]
     fn error(self, error: ServiceError) -> Result<T, ServiceError> {
         #[cfg(debug_assertions)]
         if let Err(error_val) = &self {
             use cli_colors::Colorizer;
+            use libc_print::libc_eprintln as eprintln;
 
             let colorizer = Colorizer::new();
             let line = colorizer.blue(format!(
@@ -196,6 +203,21 @@ pub struct EventHandler {
 
 impl CEventHandler {
     ///
+    ///  Creates a new `CEventHandler` with an Error value.
+    /// 
+    #[must_use]
+    #[inline]
+    pub fn new_error(error: CServiceError) -> Self {
+        Self {
+            function: None,
+            handler_id: CUuid {
+                higher: 0,
+                lower: 0,
+            },
+            error,
+        }
+    }
+    ///
     /// Converts a `CEventHandler` to the equivalent `EventHandler`.
     /// # Errors
     /// The conversion might fail when the `CEventHandler` contains an error value. In which case the Error is returned.
@@ -210,17 +232,18 @@ impl CEventHandler {
             handler_id: self.handler_id.into(),
         })
     }
+
 }
 
 impl EventHandler {
     ///
     /// Calls the event handler with the provided arguments.
-    /// # Panics
-    /// This call may panic if the handler implementation is not following the C-api correctly.
+    /// # Errors
+    /// The handle call might fail if the handler implementation is not following the C-api correctly.
     ///
     #[inline]
-    pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context_supplier: C, args: S) {
-        self.function.to_safe_fp()(context_supplier, args);
+    pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context_supplier: C, args: S) -> Result<(), ServiceError> {
+        self.function.to_safe_fp()(context_supplier, args)
     }
 
     ///
@@ -248,7 +271,7 @@ impl EventHandler {
     #[inline]
     pub fn new<E: EventHandlerFunc>(handler_id: Uuid) -> Self {
         Self {
-            function: E::adapter_fp(),
+            function: E::c_handle_fp(),
             handler_id,
         }
     }
@@ -409,14 +432,14 @@ impl ApplicationContext {
         NT: EndpointRequestService,
     >() -> Self {
         Self {
-            event_handler_register: HR::adapter_fp(),
-            event_handler_unregister: HU::adapter_fp(),
-            event_register: ER::adapter_fp(),
-            event_unregister: EU::adapter_fp(),
-            event_trigger: ET::adapter_fp(),
-            endpoint_register: NR::adapter_fp(),
-            endpoint_unregister: NU::adapter_fp(),
-            endpoint_request: NT::adapter_fp(),
+            event_handler_register: HR::c_register_fp(),
+            event_handler_unregister: HU::c_unregister_fp(),
+            event_register: ER::c_register_fp(),
+            event_unregister: EU::c_unregister_fp(),
+            event_trigger: ET::c_trigger_fp(),
+            endpoint_register: NR::c_register_fp(),
+            endpoint_unregister: NU::c_unregister_fp(),
+            endpoint_request: NT::c_request_fp(),
         }
     }
 
@@ -668,10 +691,12 @@ impl PluginInfo {
     ///
     /// Calls the init function of this plugin with the given arguments.
     /// This requires a `ContextSupplier` and valid arguments for the "core:init" event.
-    ///
+    /// # Errors
+    /// The handle call might fail if the handler implementation is not following the C-api correctly.
+    /// 
     #[inline]
-    pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context: C, args: S) {
-        self.init_handler.to_safe_fp()(context, args);
+    pub fn handle<C: ContextSupplier, S: Into<CString>>(&self, context: C, args: S) -> Result<(), ServiceError> {
+        self.init_handler.to_safe_fp()(context, args)
     }
 
     ///
@@ -708,7 +733,7 @@ impl PluginInfo {
             name: name.into(),
             version: version.into(),
             dependencies: dependencies.into(),
-            init_handler: E::adapter_fp(),
+            init_handler: E::c_handle_fp(),
             api_version,
         }
     }

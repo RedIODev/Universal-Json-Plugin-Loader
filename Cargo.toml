@@ -2,6 +2,13 @@
 resolver = "3"
 members = ["core", "api", "example", "proc-macros"]
 
+[workspace.lints.rust]
+nonstandard-style = "warn"
+
+[workspace.lints.rustdoc]
+missing_docs = "warn"
+missing_crate_level_docs = "warn"
+
 [workspace.lints.clippy]
 all = {level = "warn", priority = -1}
 pedantic = {level = "warn", priority = -1}
@@ -18,3 +25,5 @@ missing_docs_in_private_items = "allow"
 question_mark_used = "allow"
 missing_trait_methods = "allow"
 pub_use = "allow"
+unreachable = "allow"
+unseparated_literal_suffix = "allow"

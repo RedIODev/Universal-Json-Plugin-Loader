@@ -7,7 +7,8 @@
 // The Type used for handling messages.
 // The first    argument is the supplier function for the Application Context.
 // The second   argument is the input args from the event in the specified json format.
-typedef void (*EventHandlerFP)(NON_NULL ContextSupplier, String);
+// Returns the success state of the registration.
+typedef ServiceError (*EventHandlerFP)(NON_NULL ContextSupplier, String);
 
 // Handler struct that carries the success state and the generated handler_id with it.
 // The handler_id is required to unregister the handler later.

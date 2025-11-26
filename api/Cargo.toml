@@ -1,6 +1,12 @@
 [package]
 name = "plugin-loader-api"
 version = "0.1.0"
+repository = "todo!"
+description = "The core api to write plugins for the plugin-loader."
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["plugin", "api", "plugin-loader-api"]
+categories = ["api-bindings", "no-std"]
 edition = "2024"
 
 [dependencies]
@@ -9,6 +15,7 @@ derive_more = { version = "2.0.1", features = ["display"] }
 derive-enum-from-into = "0.2.1"
 uuid = { version = "1.18.1", optional = true }
 cli-colors = "1.0.0"
+libc-print = "0.1.23"
 
 proc-macros = { path = "../proc-macros", optional = true }
 
@@ -16,8 +23,6 @@ proc-macros = { path = "../proc-macros", optional = true }
 bindgen_helpers = "0.5.1"
 cbindgen = "0.29.2"
 cc = "1.2.46"
-
-
 
 
 [lib]

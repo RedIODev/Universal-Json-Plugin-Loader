@@ -353,7 +353,7 @@ pub enum CServiceError {
     PluginUninit = 11,
     ShutingDown = 12,
 }
-pub type CStringDealloc =
+pub type CStringDeallocFP =
     ::core::option::Option<unsafe extern "C" fn(arg1: *const Cc8, arg2: Cusize)>;
 #[repr(C)]
 #[derive(Debug)]
@@ -367,7 +367,7 @@ const _: () = {
     ["Offset of field: CString::internal"][::core::mem::offset_of!(CString, internal) - 0usize];
 };
 unsafe extern "C" {
-    pub fn createString(arg1: *const Cc8, arg2: Cusize, arg3: CStringDealloc) -> CString;
+    pub fn createString(arg1: *const Cc8, arg2: Cusize, arg3: CStringDeallocFP) -> CString;
 }
 unsafe extern "C" {
     pub fn fromErrorString(arg1: CServiceError) -> CString;
@@ -391,13 +391,13 @@ unsafe extern "C" {
     pub fn getViewString(arg1: *const CString, arg2: Cusize, arg3: Cusize) -> *const Cc8;
 }
 pub type CStringListDeallocFP =
-    ::core::option::Option<unsafe extern "C" fn(arg1: *mut CString, arg2: Cu32)>;
+    ::core::option::Option<unsafe extern "C" fn(arg1: *mut CString, arg2: Cusize)>;
 #[repr(C)]
 #[derive(Debug)]
 pub struct CList_String {
     pub dealloc_fn: CStringListDeallocFP,
     pub data: *mut CString,
-    pub length: Cu32,
+    pub length: Cusize,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -415,7 +415,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn createListString(
         data: *mut CString,
-        length: Cu32,
+        length: Cusize,
         dealloc_fn: CStringListDeallocFP,
     ) -> CList_String;
 }
@@ -423,13 +423,14 @@ unsafe extern "C" {
     pub fn destroyListString(list: *mut CList_String);
 }
 unsafe extern "C" {
-    pub fn getListString(list: *mut CList_String, index: Cu32) -> *mut CString;
+    pub fn getListString(list: *mut CList_String, index: Cusize) -> *mut CString;
 }
 unsafe extern "C" {
     pub fn emptyListString() -> CList_String;
 }
-pub type CEventHandlerFP =
-    ::core::option::Option<unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString)>;
+pub type CEventHandlerFP = ::core::option::Option<
+    unsafe extern "C" fn(arg1: CContextSupplier, arg2: CString) -> CServiceError,
+>;
 #[repr(C)]
 #[derive(Debug)]
 pub struct CEventHandler {

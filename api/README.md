@@ -1,2 +1,2 @@
-# rediocash-api
-The core api to interface with rediocash and develop addons
+# plugin-loader-api
+The core api to interface with the plugin-loader and other plugins.
