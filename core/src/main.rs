@@ -1,5 +1,7 @@
 #![allow(clippy::missing_errors_doc)]
 
+extern crate alloc;
+
 use crate::
     launcher::{LaunchError, Launcher}
 ;

@@ -1,4 +1,3 @@
-extern crate alloc;
 pub mod endpoint;
 pub mod event;
 

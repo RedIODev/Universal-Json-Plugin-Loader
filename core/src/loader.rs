@@ -1,4 +1,3 @@
-extern crate alloc;
 use std::{fs};
 use alloc::sync::Arc;
 use derive_more::Display;

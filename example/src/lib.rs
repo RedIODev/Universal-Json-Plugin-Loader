@@ -23,7 +23,7 @@ use uuid::Uuid;
 #[serde(rename_all = "lowercase")]
 enum MyPow {
     #[serde(skip)]
-    None,
+    None, 
     Cancel,
     Shutdown,
     Restart,

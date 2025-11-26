@@ -1,9 +1,6 @@
 #![allow(clippy::must_use_candidate, reason = "many false positives in this module")]
 #![allow(clippy::undocumented_unsafe_blocks, reason = "all undocumented unsafe blocks in this module are calling defined C-Apis")]
 
-
-extern crate alloc;
-
 use alloc::borrow::Cow;
 use alloc::string::String;
 

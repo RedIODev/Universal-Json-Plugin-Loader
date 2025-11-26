@@ -27,3 +27,5 @@ missing_trait_methods = "allow"
 pub_use = "allow"
 unreachable = "allow"
 unseparated_literal_suffix = "allow"
+
+cargo_common_metadata = "allow"

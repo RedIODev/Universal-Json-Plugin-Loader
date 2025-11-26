@@ -1,5 +1,7 @@
 #![no_std]
 
+extern crate alloc;
+
 /// cbindgen:ignore
 #[cfg(not(feature = "unsafe"))]
 #[allow(non_camel_case_types, non_upper_case_globals,
