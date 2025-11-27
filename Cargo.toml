@@ -4,9 +4,9 @@ members = ["core", "api", "example", "proc-macros"]
 
 [workspace.lints.rust]
 nonstandard-style = "warn"
+missing_docs = "warn"
 
 [workspace.lints.rustdoc]
-missing_docs = "warn"
 missing_crate_level_docs = "warn"
 
 [workspace.lints.clippy]

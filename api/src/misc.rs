@@ -7,7 +7,10 @@ use core::ptr::NonNull;
 use derive_more::Display;
 use thiserror::Error;
 
-use crate::{ServiceError, cbindings::{
+#[cfg(feature = "safe")]
+use crate::ServiceError;
+
+use crate::{cbindings::{
     CApiVersion, CList_String, CString, CUuid, asErrorString, createListString, createString, destroyListString, destroyString, emptyListString, fromErrorString, getLengthString, getViewString, isValidListString, isValidString
 }};
 
@@ -81,6 +84,7 @@ impl CString {
     }
 }
 
+#[cfg(feature = "safe")]
 impl From<ServiceError> for CString {
     #[inline]
     fn from(value: ServiceError) -> Self {
@@ -92,6 +96,7 @@ impl From<ServiceError> for CString {
     }
 }
 
+#[cfg(feature = "safe")]
 impl<'string> From<&'string CString> for Result<&'string str, ServiceError> {
     #[inline]
     fn from(value: &'string CString) -> Self {
@@ -104,6 +109,7 @@ impl<'string> From<&'string CString> for Result<&'string str, ServiceError> {
     }
 }
 
+#[cfg(feature = "safe")]
 impl From<CString> for Result<String, ServiceError> {
     #[inline]
     fn from(value: CString) -> Self {
@@ -121,6 +127,7 @@ pub trait ToCString {
     fn to_c_string(self) -> CString;
 }
 
+#[cfg(feature = "safe")]
 impl<T: Into<Box<str>>> ToCString for Result<T, ServiceError> {
     #[inline]
     fn to_c_string(self) -> CString {
@@ -293,6 +300,7 @@ impl CApiVersion {
 pub enum ApiMiscError {
     InvalidList,
     InvalidString,
+    #[cfg(feature = "safe")]
     Service(#[from]ServiceError),
     Utf8(#[from] Utf8Error),
 }

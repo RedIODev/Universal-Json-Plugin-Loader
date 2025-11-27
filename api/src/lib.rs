@@ -1,3 +1,7 @@
+//!
+//! main public api surface of the plugin system.
+//! 
+
 #![no_std]
 
 extern crate alloc;
@@ -14,7 +18,7 @@ extern crate alloc;
     clippy::decimal_literal_representation, clippy::exhaustive_structs,
     clippy::unseparated_literal_suffix, clippy::allow_attributes_without_reason,
     clippy::allow_attributes, clippy::indexing_slicing,
-    clippy::exhaustive_enums
+    clippy::exhaustive_enums, missing_docs
 )]
 mod cbindings;
 
@@ -30,7 +34,7 @@ mod cbindings;
     clippy::decimal_literal_representation, clippy::exhaustive_structs,
     clippy::unseparated_literal_suffix, clippy::allow_attributes_without_reason,
     clippy::allow_attributes, clippy::indexing_slicing,
-    clippy::exhaustive_enums
+    clippy::exhaustive_enums, missing_docs
 )]
 pub mod cbindings;
 

@@ -1,5 +1,6 @@
 #![allow(clippy::print_stdout, reason = "plugins are allowed to print to std_out/err")]
 #![allow(clippy::use_debug, reason = "example is allowed to print debug info")]
+#![allow(missing_docs, reason = "example doesn't need docs")]
 
 
 extern crate alloc;

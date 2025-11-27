@@ -1,3 +1,7 @@
+//!
+//! Proc macros for the plugin-loader
+//! 
+
 use core::{fmt::Display, mem::MaybeUninit, array, fmt};
 
 use proc_macro::{Span, TokenStream};

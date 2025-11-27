@@ -15,7 +15,7 @@ mod util;
 use crate::
     launcher::{LaunchError, Launcher}
 ;
-//refactor: remove mutex blocks, check dependencies before running core:init, pointer cast in api/misc, 
+//refactor: remove mutex blocks, check dependencies before running core:init, pointer cast in api/misc, doc comments in proc macro
 pub fn main() -> Result<(), LaunchError> {
     Launcher::new("example-loader").launch()
 }
