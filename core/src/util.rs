@@ -1,34 +1,88 @@
-use core::ops::Deref;
 
-use arc_swap::{ArcSwap, Guard, RefCnt};
+pub use mapped_guard::*;
+mod mapped_guard {
+    #![allow(clippy::field_scoped_visibility_modifiers, 
+        clippy::future_not_send, clippy::mem_forget, 
+        clippy::shadow_same, clippy::shadow_reuse, reason = "result from macro")]
+    use core::ops::Deref;
+
+    use arc_swap::{Guard, RefCnt};
+    use ouroboros::self_referencing;
+
+    #[self_referencing]
+    pub struct MappedGuard<T: arc_swap::RefCnt + 'static, U: 'static> {
+        
+        guard: Guard<T>,
+        #[borrows(guard)]
+        mapped: MappedGuardInner<U>,
+    }
+    
+    impl<T: RefCnt, U> Deref for MappedGuard<T, U> {
+        type Target = U;
+    
+        fn deref(&self) -> &Self::Target {
+            &self.borrow_mapped().mapped
+        }
+    }
+    
+    struct MappedGuardInner<U> {
+        pub mapped: U,
+    }
+
+    pub trait GuardExt<T>: Sized
+    where
+        T: RefCnt,
+    {
+    
+        fn try_map<U, F, E>(self, func: F) -> Result<MappedGuard<T, U>, E>
+        where
+            F: FnOnce(&T) -> Result<U, E>;
+    }
+    
+    impl<T> GuardExt<T> for Guard<T>
+    where
+        T: RefCnt,
+    {
+    
+        fn try_map<U, F, E>(self, func: F) -> Result<MappedGuard<T, U>, E>
+        where
+            F: FnOnce(&T) -> Result<U, E>,
+        {
+            MappedGuard::try_new(self, |guard| Ok(MappedGuardInner { mapped: func(guard)? }))
+        }
+    }
+}
+
+
+use arc_swap::{ArcSwap};
 use plugin_loader_api::ServiceError;
 use im::{HashMap, HashSet, Vector};
 use lazy_init::LazyTransform;
-use ouroboros::self_referencing;
 use core::hash::Hash;
 use std::collections;
+use toml::map::Map as TomlMap;
+
 
 pub type LockedMap<K, V> = ArcSwap<HashMap<K, V>>;
 pub type LockedVec<T> = ArcSwap<Vector<T>>;
 
 pub trait ArcMapExt<K, V> {
-    type Inner;
     type Error;
-    fn rcu_alter<F>(&self, key: impl Into<K> + Clone, f: F) -> Result<(), ServiceError>
+    type Inner;
+    fn rcu_alter<F>(&self, key: impl Into<K> + Clone, func: F) -> Result<(), ServiceError>
     where
         F: Fn(&mut V) -> Result<(), ServiceError>;
-
-    // fn try_rcu<F>(&self, f: F) -> Result<(), Self::Error>
-    // where
-    //     F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>;
 }
 
 impl<K, V> ArcMapExt<K, V> for ArcSwap<HashMap<K, V>>
 where
     K: Hash + Eq + Clone,
     V: Clone,
-{
-    fn rcu_alter<F>(&self, key: impl Into<K> + Clone, f: F) -> Result<(), ServiceError>
+    {
+    type Error = ServiceError;
+    type Inner = HashMap<K, V>;
+
+    fn rcu_alter<F>(&self, key: impl Into<K> + Clone, func: F) -> Result<(), ServiceError>
     where
         F: Fn(&mut V) -> Result<(), ServiceError>,
     {
@@ -40,7 +94,7 @@ where
                         error = Err(ServiceError::NotFound);
                         return value_opt;
                     };
-                    if let Err(err) = f(&mut value) {
+                    if let Err(err) = func(&mut value) {
                         error = Err(err);
                     }
                     Some(value)
@@ -51,23 +105,6 @@ where
         error
     }
 
-    type Inner = HashMap<K, V>;
-    type Error = ServiceError;
-
-    // fn try_rcu<F>(&self, f: F) -> Result<(), Self::Error>
-    // where
-    //     F: Fn(&Arc<Self::Inner>) -> Result<Self::Inner, Self::Error>,
-    // {
-    //     let mut error = Result::Ok(());
-    //     self.rcu(|map_inner| match f(map_inner) {
-    //         Ok(map) => map,
-    //         Err(err) => {
-    //             error = Err(err);
-    //             (**map_inner).clone()
-    //         }
-    //     });
-    //     error
-    // }
 }
 
 pub trait TrueOrErr {
@@ -85,22 +122,22 @@ impl TrueOrErr for bool {
 }
 
 pub trait MapExt<K,V> {
-    fn join_merge<F>(self, other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V; 
+    fn join_merge<F>(self, other: Self, func: F) -> Self where F: Fn(&K,V,V) -> V; 
 }
 
 impl<K: Hash + Eq + Clone,V> MapExt<K,V> for collections::HashMap<K,V> {
-    fn join_merge<F>(mut self, mut other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V {
+    fn join_merge<F>(mut self, mut other: Self, func: F) -> Self where F: Fn(&K,V,V) -> V {
         self.keys()
             .chain(other.keys())
             .cloned()
             .collect::<HashSet<K>>()
             .into_iter()
             .map(|key| {
-                let left = self.remove(&key);
-                let right = other.remove(&key);
-                match (left, right) {
+                let left_opt = self.remove(&key);
+                let right_opt = other.remove(&key);
+                match (left_opt, right_opt) {
                     (Some(left), Some(right)) => {
-                        let value = f(&key, left, right);
+                        let value = func(&key, left, right);
                         (key, value)
                     },
                     (Some(left), None) => (key, left),
@@ -111,19 +148,19 @@ impl<K: Hash + Eq + Clone,V> MapExt<K,V> for collections::HashMap<K,V> {
     }
 }
 
-impl<K: Hash + Eq + Clone + Ord,V> MapExt<K,V> for toml::map::Map<K,V> {
-    fn join_merge<F>(mut self, mut other: Self, f: F) -> Self where F: Fn(&K,V,V) -> V {
+impl<K: Hash + Eq + Clone + Ord,V> MapExt<K,V> for TomlMap<K,V> {
+    fn join_merge<F>(mut self, mut other: Self, func: F) -> Self where F: Fn(&K,V,V) -> V {
         self.keys()
             .chain(other.keys())
             .cloned()
             .collect::<HashSet<K>>()
             .into_iter()
             .map(|key| {
-                let left = self.remove(&key);
-                let right = other.remove(&key);
-                match (left, right) {
+                let left_opt = self.remove(&key);
+                let right_opt = other.remove(&key);
+                match (left_opt, right_opt) {
                     (Some(left), Some(right)) => {
-                        let value = f(&key, left, right);
+                        let value = func(&key, left, right);
                         (key, value)
                     },
                     (Some(left), None) => (key, left),
@@ -134,58 +171,6 @@ impl<K: Hash + Eq + Clone + Ord,V> MapExt<K,V> for toml::map::Map<K,V> {
     }
 }
 
-
-
-#[self_referencing]
-pub struct MappedGuard<T: arc_swap::RefCnt + 'static, U: 'static> {
-    guard: Guard<T>,
-    #[borrows(guard)]
-    mapped: MappedGuardInner<U>,
-}
-
-impl<T: RefCnt, U> Deref for MappedGuard<T, U> {
-    type Target = U;
-
-    fn deref(&self) -> &Self::Target {
-        &self.borrow_mapped().mapped
-    }
-}
-
-struct MappedGuardInner<U> {
-    mapped: U,
-}
-
-pub trait GuardExt<T>: Sized
-where
-    T: RefCnt,
-{
-    // fn map<U, F>(self, f: F) -> MappedGuard<T, U>
-    // where
-    //     F: FnOnce(&T) -> U;
-
-    fn try_map<U, F, E>(self, f: F) -> Result<MappedGuard<T, U>, E>
-    where
-        F: FnOnce(&T) -> Result<U, E>;
-}
-
-impl<T> GuardExt<T> for Guard<T>
-where
-    T: RefCnt,
-{
-    // fn map<U, F>(self, f: F) -> MappedGuard<T, U>
-    // where
-    //     F: FnOnce(&T) -> U,
-    // {
-    //     MappedGuard::new(self, |g| MappedGuardInner { mapped: f(g) })
-    // }
-
-    fn try_map<U, F, E>(self, f: F) -> Result<MappedGuard<T, U>, E>
-    where
-        F: FnOnce(&T) -> Result<U, E>,
-    {
-        MappedGuard::try_new(self, |guard| Ok(MappedGuardInner { mapped: f(guard)? }))
-    }
-}
 
 
 pub trait ResultFlatten<T,E> {
@@ -204,11 +189,13 @@ impl<T,E> ResultFlatten<T,E> for Result<Result<T, E>, E> {
 pub struct LazyInit<T, F: FnOnce() -> T = fn() -> T>(LazyTransform<F,T>);
 
 impl<T, F: FnOnce() -> T> LazyInit<T, F> {
+    pub fn get(&self) -> &T {
+        self.0.get_or_create(|func| func())
+    }
+
+    #[allow(clippy::single_call_fn, clippy::allow_attributes, reason = "just a coincidence. May be used more often later")]
     pub fn new(init: F) -> Self {
         Self(LazyTransform::new(init))
     }
 
-    pub fn get(&self) -> &T {
-        self.0.get_or_create(|f| f())
-    }
 }

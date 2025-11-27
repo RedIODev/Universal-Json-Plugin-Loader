@@ -99,7 +99,7 @@ impl Runtime {
         let mut old_config_dir = None;
         if let Some(gov) = &*GOV.load() {
             gov.runtime().event_pool.join();
-            old_config_dir.clone_from(&Some(Box::from(gov.config().config_dir())));
+            old_config_dir.clone_from(&Some(Box::from(gov.config().config_dir()?)));
         }
         
         GOV.rcu(|_| Some(Arc::default()));

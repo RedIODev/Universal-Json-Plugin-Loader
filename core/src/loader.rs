@@ -9,9 +9,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    governor::{GovernorError, get_gov},
-    runtime::event::StoredEventHandler,
-    util::{ArcMapExt as _, LockedMap, TrueOrErr as _},
+    config::ConfigError, governor::{GovernorError, get_gov}, runtime::event::StoredEventHandler, util::{ArcMapExt as _, LockedMap, TrueOrErr as _}
 };
 
 pub type Plugins = LockedMap<Uuid, Plugin>;
@@ -105,7 +103,7 @@ impl Loader {
     }
 
     pub fn load_libraries() -> Result<(), LoaderError> {
-        let plugin_folder = get_gov()?.config().config_dir().join("plugins");
+        let plugin_folder = get_gov()?.config().config_dir()?.join("plugins");
         fs::create_dir_all(&plugin_folder)?;
         let plugins = plugin_folder.read_dir()?
                 .filter_map(Result::ok)
@@ -129,5 +127,6 @@ pub enum LoaderError {
     LibError(#[from]libloading::Error),
     ServiceError(#[from]ServiceError),
     ApiMiscError(#[from]ApiMiscError),
-    Governor(#[from]GovernorError)
+    Governor(#[from]GovernorError),
+    ConfigError(#[from]ConfigError)
 }
