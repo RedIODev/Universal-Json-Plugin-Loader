@@ -32,3 +32,6 @@ arithmetic_side_effects = "allow"
 semicolon_outside_block = "allow"
 
 cargo_common_metadata = "allow"
+
+#temporary fix for schema files being detected by clippy
+self_named_module_files = "allow"
