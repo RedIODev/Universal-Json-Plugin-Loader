@@ -1,3 +1,8 @@
+//!
+//! Miscellaneous helper code.
+//! Mostly rust abstractions for C types generated from bindgen.
+//! 
+
 use alloc::vec::Vec;
 use alloc::string::String;
 use alloc::boxed::Box;
@@ -248,7 +253,8 @@ impl CApiVersion {
     #[must_use]
     #[inline]
     #[expect(clippy::indexing_slicing, clippy::arithmetic_side_effects, reason = "the const implementation of the parser requires these operations")]
-    pub const fn cargo() -> Self {
+    #[expect(clippy::single_call_fn, reason = "the function is only used once because it feeds the value to create a constant.")]
+    pub(crate) const fn cargo() -> Self {
         let cargo = env!("CARGO_PKG_VERSION");
         let bytes = cargo.as_bytes();
         let mut index = 0;
@@ -280,16 +286,6 @@ impl CApiVersion {
         }
     }
 
-    #[must_use]
-    #[inline]
-    pub const fn new(major: u16, feature: u8, patch: u8) -> Self {
-        Self {
-            major,
-            feature,
-            patch,
-        }
-    }
-
 }
 
 ///
@@ -298,10 +294,22 @@ impl CApiVersion {
 #[derive(Error, Display, Debug)]
 #[non_exhaustive]
 pub enum ApiMiscError {
+    ///
+    /// Error representing the result of trying to parse a `CList`_* c type that was not valid.
+    /// 
     InvalidList,
+    ///
+    /// Error representing the result of trying to parse the `CString` c type that was not valid. 
+    /// 
     InvalidString,
+    ///
+    /// This variant is returned when a `ServiceError` occurred while calling Service-Api code inside misc code.
+    /// 
     #[cfg(feature = "safe")]
     Service(#[from]ServiceError),
+    ///
+    /// This variant is returned when the conversion to UTF-8 failed when parsing data.
+    /// 
     Utf8(#[from] Utf8Error),
 }
 

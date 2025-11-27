@@ -83,7 +83,9 @@ impl Display for ArrayBoundsError {
 }
 
 
-
+///
+/// A simple macro that generates the main entrypoint for a plugin and provides an abstracted secondary entrypoint with a safe rust api.
+/// 
 #[proc_macro_attribute]
 pub fn plugin_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let item_fn  = parse_macro_input!(item as ItemFn);
@@ -99,6 +101,15 @@ pub fn plugin_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }.into()
 }
 
+///
+/// A free function can be annotated with this attribute and a small parameter expression.
+/// 
+/// The free function will be removed and instead a unit struct that implements the provided `fn_trait`
+/// is generated.
+/// The parameter expression needs to look like this ```#[trait_fn(<fn_trait> for <new_struct_name>)]```.
+/// The function name needs to match the name of the `trait_fn`s unimplemented function and its arguments.
+/// The visibility modifier of the function is used as the visibility modifier of the generated struct.
+/// 
 #[proc_macro_attribute]
 pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attr_args = parse_macro_input!(attr as AttrArgs);
@@ -129,6 +140,21 @@ pub fn trait_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     result.into()
 }
 
+///
+/// A trait can be annotated with this attribute if it matches the requirements for a `fn_trait`.
+/// 
+/// A `fn_trait` needs to have a single non default function annotated with the `#[sig]` attribute.
+/// This signals the macro that this function acts as the signature of the `fn_trait`.
+/// A `fn_trait` also needs to provide a default function annotated with the `#[adapter]` attribute.
+/// This signals the macro that this function acts as the adapter for c code to call when calling 
+/// this `trait_fn` from c code. It should have the required c signature and call the `#[sig]` 
+/// function after parsing the c arguments.
+/// Another requirement for a `fn_trait` is to have a default function annotated with the `#[fp_adapter]` attribute.
+/// This function does the opposite to the `#[adapter]` function. It takes the generated type `<trait_name>UnsafeFP`
+/// as its only self argument (```fn foo(self:<trait_name>UnsafeFP) ...```). 
+/// It handles the conversion from a c function pointer to a safely abstracted Fn trait impl.
+/// 
+/// 
 #[proc_macro_attribute]
 pub fn fn_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_item = parse_macro_input!(item as ItemTrait);
@@ -186,6 +212,7 @@ fn sig_getter(sig_func: &TraitItemFn, sig_fn_type: &TypeBareFn) -> TraitItem {
     let sig_func_name = &sig_func.sig.ident;
     let sig_getter_name = Ident::new(&format!("{}_fp", sig_func.sig.ident), Span::call_site().into());
     parse_quote! {
+        #[doc = "Getter function for the #[sig] annotated function as a function pointer."]
         #[inline]
         fn #sig_getter_name #sig_generics () -> #sig_fn_type {
             Self:: #sig_func_name
@@ -206,6 +233,7 @@ fn adapter_getter(adapter_func: &TraitItemFn, adapter_fn_type: &TypeBareFn) ->Tr
     });
     let call_site_generic_params = call_site_generics.params;
     parse_quote! {
+        #[doc = "Getter function for the #[adapter] annotated function as a function pointer."]
         #[inline]
         fn #adapter_getter_name #adapter_generics () -> #adapter_fn_type {
             Self:: #adapter_func_name ::<#call_site_generic_params>
@@ -229,7 +257,9 @@ fn fp_adapter_trait(fp_adapter: &TraitItemFn, trait_name: &Ident, trait_vis: &Vi
     let fp_adapter_body = fp_adapter.default.as_ref().ok_or_else(|| new_error(format!("{} must have an implementation.", fp_adapter.sig.ident)))?;
 
     Ok((parse_quote! {
+        #[doc = "Extension trait for the fn type of the #[adapter] function."]
         #trait_vis trait #fp_adapter_trait_name {
+            #[doc = "Converts the unsafe function pointers into safe Fn trait impls."]
             fn #fp_adapter_name #fp_adapter_generics (self) #fp_adapter_return_type;
         }
     },
@@ -259,7 +289,11 @@ fn annotation_error(annotation:&str) -> impl Fn(ArrayBoundsError) -> TokenStream
 fn create_type(vis: &Visibility, trait_name: &Ident, suffix:&str,  generics: &Generics, fp_type: &TypeBareFn) -> ItemType {
     let name = format!("{trait_name}{suffix}");
     let ident = Ident::new(&name, Span::call_site().into());
-    parse_quote! { #[allow(type_alias_bounds)]#vis type #ident #generics = #fp_type; }
+    parse_quote! { 
+        #[doc = "Type alias for the types of the #[sig] or #[adapter] function signatures."]
+        #[allow(type_alias_bounds)]
+        #vis type #ident #generics = #fp_type; 
+    }
 
 }
 

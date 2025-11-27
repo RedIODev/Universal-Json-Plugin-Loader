@@ -1,3 +1,12 @@
+//!
+//! Module containing traits that bridge the gap between traits and functions.
+//! 
+//! This module contains many traits that act as bridges between c function pointers and safe rust abstractions.
+//! These traits are called `fn_traits` because they represent a function pointer type while they are implemented and
+//! treated like normal traits.
+//! They are generated using the `fn_trait` macro which generates a few standard helper methods and types for each `fn_trait`.  
+//! 
+
 #![allow(clippy::must_use_candidate, reason = "many false positives in this module")]
 #![allow(clippy::undocumented_unsafe_blocks, reason = "all undocumented unsafe blocks in this module are calling defined C-Apis")]
 

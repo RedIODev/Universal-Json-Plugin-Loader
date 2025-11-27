@@ -51,6 +51,10 @@ pub use cbindings::CUuid;
 pub use cbindings::CApiVersion as ApiVersion;
 
 use crate::cbindings::CApiVersion;
+///
+/// This static (constant) represents the version of this copy of the api.
+/// It is used to prevent version conflicts when loading plugins compiled at different points in time.
+/// 
 #[unsafe(no_mangle)]
 #[used]
 pub static API_VERSION: CApiVersion = CApiVersion::cargo();

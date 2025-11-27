@@ -1,4 +1,5 @@
-#![allow(clippy::expect_used, reason = "build script.")]
+
+#![allow(clippy::expect_used, missing_docs, reason = "build script.")]
 
 use std::{path::PathBuf, };
 use core::str::FromStr as _;

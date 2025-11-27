@@ -1,4 +1,10 @@
 
+//!
+//! The safe api wrapper for the raw c api used to communicate between the plugins and the 
+//! plugin loader. This module is re-exported from the crate root if when the `safe` feature flag is active.
+//! 
+
+
 pub mod pointer_traits;
 
 use alloc::format;
