@@ -25,7 +25,7 @@ use derive_more::Display;
 use plugin_loader_api::{
     ApplicationContext, ServiceError, pointer_traits::{ContextSupplier, EventTriggerService as _, trait_fn}
 };
-use jsonschema::Validator;
+use jsonschema::{ValidationError, Validator};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
@@ -33,20 +33,30 @@ use threadpool::ThreadPool;
 use uuid::Uuid;
 
 #[atomic_enum]
-#[derive(Deserialize, Serialize, PartialEq)]
+#[derive(Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PowerState {
+    Cancel,
+    Restart,
     Running,
     Shutdown,
-    Restart,
-    Cancel,
 }
 
 pub struct Runtime {
     core_id: Uuid,
-    power_state: AtomicPowerState,
-    main_handle: Thread,
     event_pool: ThreadPool,
+    main_handle: Thread,
+    power_state: AtomicPowerState,
+}
+
+#[derive(Debug, Display, Error)]
+pub enum RuntimeError {
+    Config(#[from]ConfigError),
+    Governor(#[from]GovernorError),
+    JsonError(#[from]serde_json::Error),
+    Loader(#[from]LoaderError),
+    Service(#[from]ServiceError),
+    ValidatorError(#[from] ValidationError<'static>)
 }
 
 impl Default for Runtime {
@@ -57,30 +67,38 @@ impl Default for Runtime {
             main_handle: thread::current(),
             event_pool: ThreadPool::new(
                 thread::available_parallelism()
-                    .unwrap_or(NonZero::<usize>::MIN)
-                    .into(),
+                .unwrap_or(NonZero::<usize>::MIN)
+                .into(),
             ),
         }
     }
 }
 
 impl Runtime {
+    pub fn check_and_reset_power(&self) -> PowerState {
+        self.power_state
+            .swap(PowerState::Running, Ordering::Relaxed)
+    }
+    
+    pub fn check_power(&self) -> PowerState {
+        self.power_state.load(Ordering::Relaxed)
+    }
+    
+    pub const fn core_id(&self) -> Uuid {
+        self.core_id
+    }
+    
+    #[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
     pub fn init() -> Result<(), RuntimeError> {
-        let core_id;
-        let plugins;
-        {
-            // Mutex start
-            let gov = get_gov()?;
-            core_id = gov.runtime().core_id();
-            plugins = gov
+        
+        let core_id = get_gov()?.runtime().core_id();
+        let plugins = get_gov()?
                 .loader()
                 .plugins()
                 .load()
                 .values()
-                .map(|plugin| json!({"name": *plugin.name, "version": *plugin.version}))
+                .map(|plugin| json!({"name": *plugin.name(), "version": *plugin.version()}))
                 .collect::<Vec<_>>();
-        } // Mutex end
-
         EventTrigger::trigger(
             core_id,
             "core:init",
@@ -88,13 +106,14 @@ impl Runtime {
         )?;
         Ok(())
     }
-
-    pub fn start() -> Result<(), RuntimeError> {
-        Config::init()?;
-        Loader::load_libraries()?;
-        Runtime::init()
+    
+    #[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
+    pub fn park() -> Result<PowerState, RuntimeError> {
+        thread::park();
+        Ok(get_gov()?.runtime().check_and_reset_power())
     }
-
+    
+    #[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
     pub fn restart() -> Result<(), RuntimeError> {
         let mut old_config_dir = None;
         if let Some(gov) = &*GOV.load() {
@@ -106,32 +125,7 @@ impl Runtime {
         if let Some(dir) = old_config_dir {
             Config::set_config_dir(dir)?;
         }
-        Runtime::start()
-    }
-
-    pub fn shutdown() {
-        if let Some(gov) = &*GOV.load() {
-            gov.runtime().event_pool.join();
-        }
-        GOV.rcu(|_| None);
-    }
-
-    pub fn park() -> Result<PowerState, RuntimeError> {
-        thread::park();
-        Ok(get_gov()?.runtime().check_and_reset_power())
-    }
-
-    pub fn core_id(&self) -> Uuid {
-        self.core_id
-    }
-
-    pub fn check_and_reset_power(&self) -> PowerState {
-        self.power_state
-            .swap(PowerState::Running, Ordering::Relaxed)
-    }
-
-    pub fn check_power(&self) -> PowerState {
-        self.power_state.load(Ordering::Relaxed)
+        Self::start()
     }
 
     pub fn set_power(&self, power_state: PowerState) {
@@ -140,11 +134,24 @@ impl Runtime {
             self.main_handle.unpark();
         }
     }
+
+    #[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
+    pub fn shutdown() {
+        if let Some(gov) = &*GOV.load() {
+            gov.runtime().event_pool.join();
+        }
+        GOV.rcu(|_| None);
+    }
+    
+    pub fn start() -> Result<(), RuntimeError> {
+        Config::init()?;
+        Loader::load_libraries()?;
+        Self::init()
+    }
 }
 
-fn schema_from_file(file: &str) -> Validator {
-    jsonschema::validator_for(&serde_json::from_str(file).expect("invalid json!"))
-        .expect("invalid core schema!")
+fn schema_from_file(file: &str) -> Result<Validator, RuntimeError> {
+    Ok(jsonschema::validator_for(&serde_json::from_str(file)?)?)
 }
 
 #[trait_fn(ContextSupplier for ContextSupplierImpl)]
@@ -159,12 +166,4 @@ fn supply() -> ApplicationContext {
         EndpointUnregister,
         EndpointRequest,
     >()
-}
-
-#[derive(Debug, Display, Error)]
-pub enum RuntimeError {
-    Governor(#[from]GovernorError),
-    Service(#[from]ServiceError),
-    Config(#[from]ConfigError),
-    Loader(#[from]LoaderError)
 }

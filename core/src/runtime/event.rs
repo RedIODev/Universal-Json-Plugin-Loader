@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::{
     governor::get_gov,
     loader::Plugin,
-    runtime::{ContextSupplierImpl, PowerState, schema_from_file},
+    runtime::{ContextSupplierImpl, PowerState, RuntimeError, schema_from_file},
     util::{ArcMapExt as _, LockedMap, TrueOrErr as _},
 };
 
@@ -27,12 +27,16 @@ pub type Events = LockedMap<Box<str>, Event>;
 
 #[derive(Clone)]
 pub struct Event {
-    pub handlers: HashSet<StoredEventHandler>,
     argument_validator: Validator,
+    handlers: HashSet<StoredEventHandler>,
     plugin_id: Uuid,
 }
 
 impl Event {
+    pub const fn handlers_mut(&mut self) -> &mut HashSet<StoredEventHandler> {
+        &mut self.handlers
+    }
+
     pub fn new(argument_validator: Validator, plugin_id: Uuid) -> Self {
         Self {
             handlers: HashSet::new(),
@@ -40,6 +44,7 @@ impl Event {
             plugin_id,
         }
     }
+
 }
 
 #[derive(Clone)]
@@ -63,42 +68,90 @@ impl PartialEq for StoredEventHandler {
 impl Eq for StoredEventHandler {}
 
 impl StoredEventHandler {
-    pub fn new(handler: EventHandler, plugin_id: Uuid) -> Self {
+    pub const fn new(handler: EventHandler, plugin_id: Uuid) -> Self {
         Self { handler, plugin_id }
     }
 }
 
-pub fn register_core_events(events: &Events, core_id: Uuid) {
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+struct TopoNode(Uuid, Option<EventHandler>);
+
+impl TopoNode {
+    #[expect(clippy::single_call_fn, reason = "function extracted for visibility")]
+    fn create_dependency_entry<'plugin, F, I>(
+        handler: &StoredEventHandler,
+        plugins: F,
+        stored_plugins: &HashMap<Uuid, Plugin>,
+    ) -> Option<(Self, HashSet<Self>)>
+    where
+        F: Fn() -> I,
+        I: Iterator<Item = &'plugin Plugin>,
+    {
+        let plugin = stored_plugins.get(&handler.plugin_id)?;
+        let node = Self(handler.plugin_id, Some(handler.handler));
+        let deps = plugin
+            .dependencies()
+            .iter()
+            .map(|dep| Self::find_plugin_by_name(plugins(), dep))
+            .map(|dep| Self::find_id_for_plugin(dep?, stored_plugins))
+            .collect::<Option<_>>()?;
+        Some((node, deps))
+    }
+
+    #[expect(clippy::single_call_fn, reason = "function extracted for visibility")]
+    fn find_id_for_plugin(
+        plugin: &Plugin,
+        stored_plugins: &HashMap<Uuid, Plugin>,
+    ) -> Option<Self> {
+        stored_plugins.iter().find_map(|(key, value)| {
+            (value.name() == plugin.name()).then_some(Self(*key, None))
+        })
+    }
+
+    #[expect(clippy::single_call_fn, reason = "function extracted for visibility")]
+    fn find_plugin_by_name<'plugin>(
+        mut plugins: impl Iterator<Item = &'plugin Plugin>,
+        name: &str,
+    ) -> Option<&'plugin Plugin> {
+        plugins.find(|plugin| plugin.name() == name)
+    }
+
+}
+
+
+#[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
+pub fn register_core_events(events: &Events, core_id: Uuid) -> Result<(), RuntimeError> {
     let mut new_events = HashMap::new();
     new_events.insert(
         "core:init".into(),
         Event::new(
-            schema_from_file(include_str!("../../event/init.json")),
+            schema_from_file(include_str!("../../event/init.json"))?,
             core_id,
         ),
     );
     new_events.insert(
         "core:event".into(),
         Event::new(
-            schema_from_file(include_str!("../../event/event.json")),
+            schema_from_file(include_str!("../../event/event.json"))?,
             core_id,
         ),
     );
     new_events.insert(
         "core:endpoint".into(),
         Event::new(
-            schema_from_file(include_str!("../../event/endpoint.json")),
+            schema_from_file(include_str!("../../event/endpoint.json"))?,
             core_id,
         ),
     );
     new_events.insert(
         "core:power".into(),
         Event::new(
-            schema_from_file(include_str!("../../event/power.json")),
+            schema_from_file(include_str!("../../event/power.json"))?,
             core_id,
         ),
     );
     events.rcu(|map| HashMap::clone(map).union(new_events.clone()));
+    Ok(())
 }
 
 #[trait_fn(EventHandlerRegisterService for EventHandlerRegister)]
@@ -136,7 +189,7 @@ pub(super) fn unregister<S: AsRef<str>>(
             let handler = event
                 .handlers
                 .iter()
-                .find(|h| h.handler.id() == handler_id)
+                .find(|stored_handler| stored_handler.handler.id() == handler_id)
                 .ok_or(ServiceError::NotFound)?;
             if handler.plugin_id != plugin_id {
                 return Err(ServiceError::Unauthorized);
@@ -150,14 +203,14 @@ pub(super) fn unregister<S: AsRef<str>>(
 
 #[trait_fn(EventRegisterService for EventRegister)]
 pub(super) fn register<S: AsRef<str>, T: AsRef<str>>(
-    argument_schema: S,
+    event_schema: S,
     plugin_id: Uuid,
     event_name: T,
 ) -> Result<(), ServiceError> {
     if event_name.as_ref().contains(':') {
         return Err(ServiceError::InvalidString);
     }
-    let argument_schema_json = serde_json::from_str(argument_schema.as_ref()).error(ServiceError::InvalidJson)?;
+    let argument_schema_json = serde_json::from_str(event_schema.as_ref()).error(ServiceError::InvalidJson)?;
 
     let argument_validator =
         jsonschema::validator_for(&argument_schema_json).error(ServiceError::InvalidSchema)?;
@@ -165,7 +218,7 @@ pub(super) fn register<S: AsRef<str>, T: AsRef<str>>(
     let full_name = {
         let gov = get_gov().error(CoreInternalError)?;
         let plugins = gov.loader().plugins().load();
-        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).error(ServiceError::NotFound)?;
+        let plugin_name = plugins.get(&plugin_id).map(Plugin::name).error(ServiceError::NotFound)?;
         if gov.events().load().contains_key(event_name.as_ref()) {
             return Err(ServiceError::Duplicate);
         }
@@ -195,8 +248,8 @@ pub(super) fn unregister<S: AsRef<str>>(
 ) -> Result<(), ServiceError> {
     {
         let gov = get_gov().error(CoreInternalError)?;
-        let events = gov.events().load();
-        let event = events
+        let events_guard = gov.events().load();
+        let event = events_guard
             .get(event_name.as_ref())
             .error(ServiceError::NotFound)?;
         if event.plugin_id != plugin_id {
@@ -218,7 +271,7 @@ pub(super) fn trigger<S: AsRef<str>, T: AsRef<str>>(
 ) -> Result<(), ServiceError> {
     match get_gov().error(CoreInternalError)?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
-        _ => {}
+        PowerState::Running | PowerState::Cancel => {}
     }
 
     let event_arguments_json = serde_json::from_str(args.as_ref()).error(ServiceError::InvalidJson)?;
@@ -243,21 +296,22 @@ pub(super) fn trigger<S: AsRef<str>, T: AsRef<str>>(
             };
             funcs
         } else {
-            event.handlers.iter().map(|h| h.handler).collect()
+            event.handlers.iter().map(|stored_handler| stored_handler.handler).collect()
         }
     };
     let executor = get_gov().error(CoreInternalError)?.runtime().event_pool.clone();
-    let owned_args = args.as_ref().to_string();
+    let owned_args = args.as_ref().to_owned();
     executor.execute(move || {
         for func in funcs {
-            func.handle(ContextSupplierImpl, owned_args.clone());
+            let _err = func.handle(ContextSupplierImpl, owned_args.clone()).error(ServiceError::PluginInternalError);
         }
     });
     Ok(())
 }
 
-fn sort_handlers<'a>(
-    handlers: impl Iterator<Item = &'a StoredEventHandler>,
+#[expect(clippy::single_call_fn, reason = "function extracted for visibility")]
+fn sort_handlers<'handler>(
+    handlers: impl Iterator<Item = &'handler StoredEventHandler>,
     stored_plugins: &HashMap<Uuid, Plugin>,
 ) -> Option<Vec<EventHandler>> {
     let nodes: Vec<_> = handlers
@@ -276,47 +330,3 @@ fn sort_handlers<'a>(
             .collect::<Option<_>>()
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-struct TopoNode(Uuid, Option<EventHandler>);
-
-impl TopoNode {
-    fn create_dependency_entry<'a, F, I>(
-        handler: &StoredEventHandler,
-        plugins: F,
-        stored_plugins: &HashMap<Uuid, Plugin>,
-    ) -> Option<(TopoNode, HashSet<TopoNode>)>
-    where
-        F: Fn() -> I,
-        I: Iterator<Item = &'a Plugin>,
-    {
-        let plugin = stored_plugins.get(&handler.plugin_id)?;
-        let node = TopoNode(handler.plugin_id, Some(handler.handler));
-        let deps = plugin
-            .dependencies
-            .iter()
-            .map(|dep| TopoNode::find_plugin_by_name(plugins(), dep))
-            .map(|dep| TopoNode::find_id_for_plugin(dep?, stored_plugins))
-            .collect::<Option<_>>()?;
-        Some((node, deps))
-    }
-
-    fn find_plugin_by_name<'a>(
-        mut plugins: impl Iterator<Item = &'a Plugin>,
-        name: &str,
-    ) -> Option<&'a Plugin> {
-        plugins.find(|plugin| *plugin.name == *name)
-    }
-
-    fn find_id_for_plugin(
-        plugin: &Plugin,
-        stored_plugins: &HashMap<Uuid, Plugin>,
-    ) -> Option<TopoNode> {
-        stored_plugins.iter().find_map(|(key, value)| {
-            if value.name == plugin.name {
-                Some(TopoNode(*key, None))
-            } else {
-                None
-            }
-        })
-    }
-}

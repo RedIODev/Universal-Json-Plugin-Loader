@@ -29,5 +29,6 @@ unreachable = "allow"
 unseparated_literal_suffix = "allow"
 pub_with_shorthand = "allow"
 arithmetic_side_effects = "allow"
+semicolon_outside_block = "allow"
 
 cargo_common_metadata = "allow"

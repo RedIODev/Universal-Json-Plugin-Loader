@@ -15,12 +15,6 @@ pub struct Launcher {
 }
 
 impl Launcher {
-    pub fn new(config_path: impl AsRef<Path>) -> Self {
-        Self {
-            config_path: Box::from(config_path.as_ref()),
-        }
-    }
-
     pub fn launch(&self) -> Result<(), LaunchError> {
         let gov_lifetime = GovernorLifetime::new();
         Config::set_config_dir(&self.config_path)?;
@@ -36,8 +30,25 @@ impl Launcher {
         drop(gov_lifetime); //explicit drop to ensure the GGL lifetime is exactly the lifetime of main.
         Ok(())
     }
+
+    #[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
+    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
+        Self {
+            config_path: Box::from(config_path.as_ref()),
+        }
+    }
+
 }
 
+#[derive(Debug, Display, Error)]
+pub enum LaunchError {
+    Config(#[from] ConfigError),
+    Ctrlc(#[from] ctrlc::Error),
+    Runtime(#[from] RuntimeError),
+}
+
+#[expect(clippy::single_call_fn, reason = "function only used for ctrlc callback")]
+#[expect(clippy::expect_used, reason = "cannot recover from signal handler")]
 fn ctrlc_handler() {
     let gov = get_gov().expect("could not acquire governor for shutdown!");
     gov.runtime().set_power(PowerState::Shutdown);
@@ -45,9 +56,3 @@ fn ctrlc_handler() {
 
 
 
-#[derive(Debug, Display, Error)]
-pub enum LaunchError {
-    Runtime(#[from] RuntimeError),
-    Ctrlc(#[from] ctrlc::Error),
-    Config(#[from] ConfigError),
-}

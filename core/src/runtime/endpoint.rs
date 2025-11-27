@@ -18,7 +18,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    config::ConfigRequestHandler, governor::get_gov, runtime::{ContextSupplierImpl, EventTrigger, PowerState, schema_from_file}, util::LockedMap
+    config::ConfigRequestHandler, governor::get_gov, loader::Plugin, runtime::{ContextSupplierImpl, EventTrigger, PowerState, RuntimeError, schema_from_file}, util::LockedMap
 };
 
 use ServiceError::CoreInternalError;
@@ -27,10 +27,10 @@ pub type Endpoints = LockedMap<Box<str>, Endpoint>;
 
 #[derive(Clone)]
 pub struct Endpoint {
-    request_handler: RequestHandlerFuncUnsafeFP,
     argument_validator: Validator,
-    response_validator: Validator,
     plugin_id: Uuid,
+    request_handler: RequestHandlerFuncUnsafeFP,
+    response_validator: Validator,
 }
 
 impl Endpoint {
@@ -41,43 +41,20 @@ impl Endpoint {
         plugin_id: Uuid,
     ) -> Self {
         Self {
-            request_handler,
             argument_validator,
-            response_validator,
             plugin_id,
+            request_handler,
+            response_validator,
         }
     }
-}
-
-pub fn register_core_endpoints(endpoints: &Endpoints, core_id: Uuid) {
-    let mut new_endpoints = HashMap::new();
-    new_endpoints.insert(
-        "core:power".into(),
-        Endpoint::new(
-            CorePowerHandler::c_handle_fp(),
-            schema_from_file(include_str!("../../endpoint/power-args.json")),
-            schema_from_file(include_str!("../../endpoint/power-resp.json")),
-            core_id
-        ),
-    );
-    new_endpoints.insert(
-        "core:config".into(),
-        Endpoint::new(
-            ConfigRequestHandler::c_handle_fp(),
-            schema_from_file(include_str!("../../endpoint/config-args.json")),
-            schema_from_file(include_str!("../../endpoint/config-resp.json")),
-            core_id
-        )
-    );
-    endpoints.rcu(|map| HashMap::clone(map).union(new_endpoints.clone()));
 }
 
 #[derive(Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum PowerCommand {
-    Shutdown,
-    Restart,
     Cancel,
+    Restart,
+    Shutdown,
 }
 
 #[derive(Deserialize)]
@@ -86,27 +63,54 @@ struct PowerArgs {
     delay: Option<u32>,
 }
 
+
+#[expect(clippy::single_call_fn, reason = "function extracted to locate to better module")]
+pub fn register_core_endpoints(endpoints: &Endpoints, core_id: Uuid) -> Result<(), RuntimeError> {
+    let mut new_endpoints = HashMap::new();
+    new_endpoints.insert(
+        "core:power".into(),
+        Endpoint::new(
+            CorePowerHandler::c_handle_fp(),
+            schema_from_file(include_str!("../../endpoint/power-args.json"))?,
+            schema_from_file(include_str!("../../endpoint/power-resp.json"))?,
+            core_id
+        ),
+    );
+    new_endpoints.insert(
+        "core:config".into(),
+        Endpoint::new(
+            ConfigRequestHandler::c_handle_fp(),
+            schema_from_file(include_str!("../../endpoint/config-args.json"))?,
+            schema_from_file(include_str!("../../endpoint/config-resp.json"))?,
+            core_id
+        )
+    );
+    endpoints.rcu(|map| HashMap::clone(map).union(new_endpoints.clone()));
+    Ok(())
+}
+
+
 #[trait_fn(RequestHandlerFunc for CorePowerHandler)]
 pub fn handle<'args, F: Fn() -> Result<ApplicationContext, ServiceError>, S: Into<Cow<'args, str>>, T: AsRef<str>>(
     context_supplier: F,
     _: T,
     args: S,
 ) -> Result<String, ServiceError> {
-    let args = serde_json::from_str::<PowerArgs>(&args.into()).error(ServiceError::InvalidJson)?;
+    let power_args = serde_json::from_str::<PowerArgs>(&args.into()).error(ServiceError::InvalidJson)?;
     match get_gov().error(CoreInternalError)?.runtime().check_power() {
         PowerState::Shutdown | PowerState::Restart => return Err(ServiceError::ShutingDown),
-        _ => {}
+        PowerState::Running | PowerState::Cancel => {}
     }
     let core_id = get_gov().error(CoreInternalError)?.runtime().core_id();
     let context = context_supplier()?;
     let utc_now = Utc::now();
     let timestamp = utc_now.to_rfc3339_opts(SecondsFormat::Nanos, true);
-    if let Some(delay) = args.delay {
+    if let Some(delay) = power_args.delay {
         context.trigger_event(
             core_id,
             "core:power",
             json!({
-                    "command": args.command,
+                    "command": power_args.command,
                     "timestamp": timestamp,
                     "delay": delay
             })
@@ -117,22 +121,22 @@ pub fn handle<'args, F: Fn() -> Result<ApplicationContext, ServiceError>, S: Int
             core_id,
             "core:power",
             json!({
-                    "command": args.command,
+                    "command": power_args.command,
                     "timestamp": timestamp
             })
             .to_string(),
         )?;
     }
 
-    if let Some(delay) = args.delay {
+    if let Some(delay) = power_args.delay {
         thread::sleep(Duration::from_millis(delay.into()));
     }
 
-    if let PowerState::Cancel = get_gov().error(CoreInternalError)?.runtime().check_and_reset_power() {
+    if PowerState::Cancel == get_gov().error(CoreInternalError)?.runtime().check_and_reset_power() {
         return Ok(json!({"canceled": true}).to_string());
     }
 
-    let power_state = match args.command {
+    let power_state = match power_args.command {
         PowerCommand::Shutdown => PowerState::Shutdown,
         PowerCommand::Restart => PowerState::Restart,
         PowerCommand::Cancel => PowerState::Cancel,
@@ -163,7 +167,7 @@ pub(super) fn register<S: AsRef<str>, T: AsRef<str>, Q: AsRef<str>>(
     let full_name = {
         let gov = get_gov().error(CoreInternalError)?;
         let plugins = gov.loader().plugins().load();
-        let plugin_name = plugins.get(&plugin_id).map(|p| &*p.name).error(ServiceError::NotFound)?;
+        let plugin_name = plugins.get(&plugin_id).map(Plugin::name).error(ServiceError::NotFound)?;
         if gov.endpoints().load().contains_key(endpoint_name.as_ref()) {
             return Err(ServiceError::Duplicate);
         }
@@ -210,20 +214,20 @@ pub(super) fn unregister<S: AsRef<str>>(
 }
 
 #[trait_fn(EndpointRequestService for EndpointRequest)]
-pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
+pub(super) fn request<'args, S: AsRef<str>, T: Into<Cow<'args, str>>>(
     endpoint_name: S,
     plugin_id: Uuid,
     args: T,
 ) -> Result<String, ServiceError> {
-    let args = args.into();
-    let arguments_json = serde_json::from_str(args.as_ref()).error(ServiceError::InvalidJson)?;
+    let cow_args = args.into();
+    let arguments_json = serde_json::from_str(cow_args.as_ref()).error(ServiceError::InvalidJson)?;
     let plugin_name = {
         let gov = get_gov().error(CoreInternalError)?;
         let plugins = gov.loader().plugins().load();
         plugins.get(&plugin_id)
-                .map(|p| &*p.name)
+                .map(Plugin::name)
                 .error(ServiceError::NotFound)?
-                .to_string()
+                .to_owned()
     };
     let handler = {
         let gov = get_gov().error(CoreInternalError)?;
@@ -237,7 +241,7 @@ pub(super) fn request<'a, S: AsRef<str>, T: Into<Cow<'a, str>>>(
             .error(ServiceError::InvalidApi)?;
         endpoint.request_handler.to_safe_fp()
     };
-    let response = handler(ContextSupplierImpl, plugin_name, args)?;
+    let response = handler(ContextSupplierImpl, plugin_name, cow_args)?;
 
     let response_json =
         serde_json::from_str(&response).error(ServiceError::InvalidJson)?;
