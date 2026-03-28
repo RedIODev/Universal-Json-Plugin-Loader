@@ -1,13 +1,16 @@
 //!
 //! Miscellaneous helper code.
 //! Mostly rust abstractions for C types generated from bindgen.
-//! 
+//!
 
-use alloc::vec::Vec;
-use alloc::string::String;
 use alloc::boxed::Box;
-use core::{str::{self, Utf8Error}, slice};
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::ptr::NonNull;
+use core::{
+    slice,
+    str::{self, Utf8Error},
+};
 
 use derive_more::Display;
 use thiserror::Error;
@@ -15,9 +18,185 @@ use thiserror::Error;
 #[cfg(feature = "safe")]
 use crate::ServiceError;
 
-use crate::{cbindings::{
-    CApiVersion, CList_String, CString, CUuid, asErrorString, createListString, createString, destroyListString, destroyString, emptyListString, fromErrorString, getLengthString, getViewString, isValidListString, isValidString
-}};
+use crate::cbindings::{
+    CApiVersion, CList_String, CString, CUuid, asErrorString, createListString, createString,
+    destroyListString, destroyString, emptyListString, fromErrorString, getLengthString,
+    getViewString, isValidListString, isValidString,
+};
+
+#[cfg(test)]
+#[expect(
+    clippy::panic,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "tests are supposed to panic"
+)]
+mod tests {
+    use alloc::{format};
+
+    use super::*;
+    use core::ptr;
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn uuid_to_cuuid() {
+        let uuid = uuid::Uuid::from_u64_pair(12, 24);
+        let cuuid: CUuid = uuid.into();
+        assert_eq!(cuuid.higher, 12);
+        assert_eq!(cuuid.lower, 24);
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn cuuid_to_uuid() {
+        let cuuid = CUuid {
+            higher: 12,
+            lower: 24,
+        };
+        let uuid: uuid::Uuid = cuuid.into();
+        assert_eq!(uuid.as_u64_pair(), (12, 24));
+    }
+
+    #[test]
+    fn drop_cstring() {
+        let cstring = CString::from("test");
+        drop(cstring);
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn valid_as_str_cstring() {
+        let cstring = CString::from("valid");
+        let str = cstring
+            .as_str()
+            .unwrap_or_else(|_| panic!("string should be valid"));
+        assert_eq!(str, "valid");
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn error_as_str_cstring() {
+        let cstring = CString::from(ServiceError::CoreInternalError);
+        match cstring.as_str() {
+            Ok(_) => panic!("should be error value"),
+            Err(ApiMiscError::Service(ServiceError::CoreInternalError)) => (),
+            _ => panic!("incorrect error"),
+        }
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn invalid_as_str_cstring() {
+        let cstring = CString { internal: [0; 24] };
+        match cstring.as_str() {
+            Ok(_) => panic!("should be invalid"),
+            Err(ApiMiscError::InvalidString) => (),
+            _ => panic!("incorrect error"),
+        }
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn service_error_to_cstring() {
+        let service_error = ServiceError::CoreInternalError;
+        let cstring: CString = service_error.into();
+        let err = cstring.as_str().expect_err("should be error variant");
+        assert!(
+            matches!(err, ApiMiscError::Service(ServiceError::CoreInternalError)),
+            "wrong error"
+        );
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn box_str_to_cstring() {
+        let boxed = String::from("Test").into_boxed_str();
+        let cstring: CString = boxed.into();
+        assert_eq!(cstring.as_str().expect("should be valid"), "Test");
+    }
+
+    #[test]
+    fn drop_clist_string() {
+        let list = CList_String::from([]);
+        drop(list);
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn clist_string_as_array() {
+        let list = CList_String::from(["Test".into()]);
+        let array = list.as_array().expect("should be valid");
+        assert_eq!(array.len(), 1);
+        assert_eq!(array[0], "Test");
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn invalid_as_array() {
+        let invalid = CList_String {
+            dealloc_fn: None,
+            data: ptr::null_mut(),
+            length: 1,
+        };
+        let err = invalid.as_array().expect_err("should be invalid");
+        assert!(matches!(err, ApiMiscError::InvalidList));
+    }
+
+    #[cfg(feature = "safe")]
+    #[test]
+    fn empty_as_array() {
+        let empty = CList_String::from([]);
+        assert_eq!(empty.as_array().expect("should be valid").len(), 0);
+    }
+
+    #[test]
+    fn version_eq() {
+        let api_ver0 = CApiVersion {
+            major: 0,
+            feature: 0,
+            patch: 0,
+        };
+        assert_eq!(api_ver0, api_ver0);
+        let api_ver1 = CApiVersion {
+            major: 0,
+            feature: 0,
+            patch: 1,
+        };
+        assert_eq!(api_ver0, api_ver1);
+        let api_ver2 = CApiVersion {
+            major: 1,
+            feature: 0,
+            patch: 0,
+        };
+        assert_ne!(api_ver0, api_ver2);
+        let api_ver3 = CApiVersion {
+            major: 0,
+            feature: 1,
+            patch: 0,
+        };
+        assert_ne!(api_ver0, api_ver3);
+    }
+
+    #[test]
+    fn valid_to_u16() {
+        let str = b"12";
+        assert_eq!(to_u16(str, 0, 2), 12);
+    }
+
+    #[test]
+    fn valid_to_u8() {
+        let str = b"12";
+        assert_eq!(to_u8(str, 0, 2), 12);
+    }
+
+    #[test]
+    fn cargo_ver() {
+        let api_ver = CApiVersion::cargo();
+        let ver_str = env!("CARGO_PKG_VERSION");
+        let ver_to_str = format!("{}.{}.{}", api_ver.major, api_ver.feature, api_ver.patch);
+        assert_eq!(ver_str, ver_to_str);
+    }
+}
 
 #[cfg(feature = "safe")]
 impl From<CUuid> for uuid::Uuid {
@@ -40,9 +219,11 @@ impl Drop for CString {
     #[inline]
     fn drop(&mut self) {
         // SAFETY:
-        // Calling dropString on an instance of CString is the correct way to dispose of 
+        // Calling dropString on an instance of CString is the correct way to dispose of
         // an instance of this type according to the c-api.
-        unsafe { destroyString(self); }
+        unsafe {
+            destroyString(self);
+        }
     }
 }
 
@@ -52,19 +233,21 @@ impl CString {
     /// # Errors
     /// The access might fail in case the `CString` instance is not valid according to [`isValidString`].
     /// Or the resulting string is not a valid UTF-8 string required by `str`.
-    /// 
+    ///
+    #[cfg(feature = "safe")]
     #[inline]
     pub fn as_str(&self) -> Result<&str, ApiMiscError> {
         // SAFETY:
         // Calling isValidString is always safe.
-        // Any bit pattern of CString is a valid argument for isValidString. 
+        // Any bit pattern of CString is a valid argument for isValidString.
         if unsafe { !isValidString(self) } {
             // SAFETY:
             // Calling asErrorString is always safe.
             // The function checks the validity of it's argument internally.
             // Returns null if the argument is not a valid error.
             let service_error_ptr = unsafe { asErrorString(self) };
-            let service_error = NonNull::new(service_error_ptr).ok_or(ApiMiscError::InvalidString)?;
+            let service_error =
+                NonNull::new(service_error_ptr).ok_or(ApiMiscError::InvalidString)?;
             // SAFETY:
             // CServiceErrors returned by asErrorString are always null or a valid error.
             // We checked for null by converting it to NonNull.
@@ -75,17 +258,15 @@ impl CString {
         // The Length value can be trusted as we checked for an invalid string already.
         let len = unsafe { getLengthString(self) };
         // SAFETY:
-        // Calling getViewString with a valid CString, 0 and it's reported length is safe 
+        // Calling getViewString with a valid CString, 0 and it's reported length is safe
         // as it get's a slice over the entire CString.
         // The owner stays the CString instance as getView only creates a non owning view.
         // The view is valid as long as the CString is valid which is upheld by the lifetime relationship created in the next lines.
         let ptr = unsafe { getViewString(self, 0, len) };
         // SAFETY:
-        // Creating a &'a [u8] from a pointer returned from getViewString is valid because 
+        // Creating a &'a [u8] from a pointer returned from getViewString is valid because
         // the lifetime of the view is equal to the lifetime of the CString which is bound to the instance of CString through the elided lifetime.
-        Ok(str::from_utf8(unsafe {
-            slice::from_raw_parts(ptr, len)
-        })?)
+        Ok(str::from_utf8(unsafe { slice::from_raw_parts(ptr, len) })?)
     }
 }
 
@@ -97,7 +278,7 @@ impl From<ServiceError> for CString {
         // Creating an Error instance of CString from a valid CServiceError is almost always valid.
         // The only value not valid is CServiceError::Success. This variant can't be created from
         // an ServiceError instance.
-        unsafe {fromErrorString(value.into())}
+        unsafe { fromErrorString(value.into()) }
     }
 }
 
@@ -106,11 +287,10 @@ impl<'string> From<&'string CString> for Result<&'string str, ServiceError> {
     #[inline]
     fn from(value: &'string CString) -> Self {
         value.as_str().map_err(|api_error| match api_error {
-                ApiMiscError::Service(service_error) => service_error,
-                ApiMiscError::Utf8(_)| ApiMiscError::InvalidString => ServiceError::InvalidString,
-                ApiMiscError::InvalidList => unreachable!("as_str() can't produce this error.")
-            }
-        )
+            ApiMiscError::Service(service_error) => service_error,
+            ApiMiscError::Utf8(_) | ApiMiscError::InvalidString => ServiceError::InvalidString,
+            ApiMiscError::InvalidList => unreachable!("as_str() can't produce this error."),
+        })
     }
 }
 
@@ -118,17 +298,17 @@ impl<'string> From<&'string CString> for Result<&'string str, ServiceError> {
 impl From<CString> for Result<String, ServiceError> {
     #[inline]
     fn from(value: CString) -> Self {
-        Result::<& str,_>::from(&value).map(String::from)
+        Result::<&str, _>::from(&value).map(String::from)
     }
 }
 
 ///
 /// A trait representing values that can be converted to a `CString`.
-/// 
+///
 pub trait ToCString {
     ///
     /// Consumes this self value and turns it into a `CString`.
-    /// 
+    ///
     fn to_c_string(self) -> CString;
 }
 
@@ -138,7 +318,7 @@ impl<T: Into<Box<str>>> ToCString for Result<T, ServiceError> {
     fn to_c_string(self) -> CString {
         match self {
             Ok(str) => CString::from(str.into()),
-            Err(error) => error.into()
+            Err(error) => error.into(),
         }
     }
 }
@@ -163,18 +343,21 @@ impl Drop for CList_String {
         // SAFETY:
         // Calling destroyListString on an instance of CList_String is the correct way to dispose of an instance
         // of this type. For invalid instances destroyListString is defined as a nop. Therefore its safe to call in any way.
-        unsafe { destroyListString(self); }
+        unsafe {
+            destroyListString(self);
+        }
     }
 }
 
 impl CList_String {
     ///
     /// Converts this String array into a Vec<&str>.
-    /// 
+    ///
     /// The Vec is allocated but the &str instances are still references to the `CList_String` instance.
     /// # Errors
     /// This operation might fail either because the List itself is invalid or a string inside it is.
-    /// 
+    ///
+    #[cfg(feature = "safe")]
     #[inline]
     pub fn as_array(&self) -> Result<Vec<&str>, ApiMiscError> {
         // SAFETY:
@@ -188,27 +371,23 @@ impl CList_String {
         }
 
         if !self.data.is_aligned() {
-            return Err(ApiMiscError::InvalidList)
+            return Err(ApiMiscError::InvalidList);
         }
-        let isize_len = self.length.try_into().map_err(|_error| ApiMiscError::InvalidList)?;
+        let isize_len = self
+            .length
+            .try_into()
+            .map_err(|_error| ApiMiscError::InvalidList)?;
 
-        if self.data.wrapping_offset(isize_len) > self.data {
+        if self.data.wrapping_offset(isize_len) < self.data {
             return Err(ApiMiscError::InvalidList);
         }
         // SAFETY:
         // The safety requirements listed in slice::from_raw_parts are checked by the above checks therefore calling the
         // function is safe to do.
         let slice = unsafe { slice::from_raw_parts(self.data, self.length) };
-        slice
-            .iter()
-            .map(CString::as_str)
-            .collect::<Result<_, _>>()
+        slice.iter().map(CString::as_str).collect::<Result<_, _>>()
     }
 }
-
-
-
-
 
 impl<T> From<T> for CList_String
 where
@@ -224,17 +403,15 @@ where
         }
         let length = boxed_list.len();
         let leaked = Box::into_raw(boxed_list);
-        let ptr = leaked.cast(); 
+        let ptr = leaked.cast();
         //todo!("research rather this is valid");
-        
+
         // SAFETY:
-        // Calling createListString with a valid pointer it's corresponding length and drop function 
+        // Calling createListString with a valid pointer it's corresponding length and drop function
         // like we do here is safe according to the c-api.
         unsafe { createListString(ptr, length, Some(drop_list_string)) }
     }
 }
-
-
 
 impl Copy for CApiVersion {}
 
@@ -252,8 +429,11 @@ impl PartialEq for CApiVersion {
 impl CApiVersion {
     #[must_use]
     #[inline]
-    #[expect(clippy::indexing_slicing, clippy::arithmetic_side_effects, reason = "the const implementation of the parser requires these operations")]
-    #[expect(clippy::single_call_fn, reason = "the function is only used once because it feeds the value to create a constant.")]
+    #[expect(
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects,
+        reason = "the const implementation of the parser requires these operations"
+    )]
     pub(crate) const fn cargo() -> Self {
         let cargo = env!("CARGO_PKG_VERSION");
         let bytes = cargo.as_bytes();
@@ -285,36 +465,38 @@ impl CApiVersion {
             patch,
         }
     }
-
 }
 
 ///
 /// `ApiMiscError` is the public error type returned by all public functions performing fallible operations of this module.
-/// 
+///
 #[derive(Error, Display, Debug)]
 #[non_exhaustive]
 pub enum ApiMiscError {
     ///
     /// Error representing the result of trying to parse a `CList`_* c type that was not valid.
-    /// 
+    ///
     InvalidList,
     ///
-    /// Error representing the result of trying to parse the `CString` c type that was not valid. 
-    /// 
+    /// Error representing the result of trying to parse the `CString` c type that was not valid.
+    ///
     InvalidString,
     ///
     /// This variant is returned when a `ServiceError` occurred while calling Service-Api code inside misc code.
-    /// 
+    ///
     #[cfg(feature = "safe")]
-    Service(#[from]ServiceError),
+    Service(#[from] ServiceError),
     ///
     /// This variant is returned when the conversion to UTF-8 failed when parsing data.
-    /// 
+    ///
     Utf8(#[from] Utf8Error),
 }
 
-
-#[expect(clippy::indexing_slicing, clippy::arithmetic_side_effects, reason = "the const implementation of the parser requires these operations")]
+#[expect(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    reason = "the const implementation of the parser requires these operations"
+)]
 const fn to_u8(bytes: &[u8], start: usize, end: usize) -> u8 {
     let mut res = 0;
     let mut i = start;
@@ -325,9 +507,12 @@ const fn to_u8(bytes: &[u8], start: usize, end: usize) -> u8 {
     res
 }
 
-#[expect(clippy::indexing_slicing, clippy::arithmetic_side_effects, 
-    clippy::as_conversions, reason = "the const implementation of the parser requires these operations")]
-#[expect(clippy::single_call_fn, reason = "the function is only used once in the parser but extracted into a function for readability")]
+#[expect(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    reason = "the const implementation of the parser requires these operations"
+)]
 const fn to_u16(bytes: &[u8], start: usize, end: usize) -> u16 {
     let mut res: u16 = 0;
     let mut i = start;
@@ -338,9 +523,11 @@ const fn to_u16(bytes: &[u8], start: usize, end: usize) -> u16 {
     res
 }
 
-
 #[doc(hidden)]
-#[expect(clippy::single_call_fn, reason = "drop function for string lists is only used only once in From<Into<Box<[CString]>>> impl")]
+#[expect(
+    clippy::single_call_fn,
+    reason = "drop function for string lists is only used only once in From<Into<Box<[CString]>>> impl"
+)]
 unsafe extern "C" fn drop_list_string(list: *mut CString, length: usize) {
     // SAFETY:
     // The contract of CStringListDeallocFP function pointer is guaranteeing a valid ptr and length.
@@ -354,9 +541,12 @@ unsafe extern "C" fn drop_list_string(list: *mut CString, length: usize) {
 }
 
 #[doc(hidden)]
-#[expect(clippy::single_call_fn, reason = "drop function for strings is only used only once in From<Into<Box<str>>> impl")]
+#[expect(
+    clippy::single_call_fn,
+    reason = "drop function for strings is only used only once in From<Into<Box<str>>> impl"
+)]
 unsafe extern "C" fn drop_string(str: *const u8, length: usize) {
-    // SAFETY: 
+    // SAFETY:
     // The contract of the CStringDeallocFP function pointer is guaranteeing a valid ptr and length.
     // This function should only ever be passed to createString where the CString implementation can ensure this guarantee.
     // Creating an utf8 slice and Box from it is also safe as the CString abstraction in pair with the c-api
