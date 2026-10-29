@@ -1,7 +1,7 @@
 
 //!
 //! The safe api wrapper for the raw c api used to communicate between the plugins and the 
-//! plugin loader. This module is re-exported from the crate root if when the `safe` feature flag is active.
+//! plugin loader. This module is re-exported from the crate root when the `safe` feature flag is active.
 //! 
 
 
@@ -41,6 +41,51 @@ use crate::safe_api::pointer_traits::{
     RequestHandlerFunc,
 };
 
+#[cfg(test)]
+#[expect(
+    clippy::panic,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "tests are supposed to panic"
+)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use super::*;
+
+    #[test]
+    fn option_error() {
+        let none: Option<()> = None;
+        let result = none.error(ServiceError::CoreInternalError);
+        assert!(matches!(result, Result::Err(ServiceError::CoreInternalError)));
+        let some = Some(());
+        let result2 = some.error(ServiceError::CoreInternalError);
+        assert!(matches!(result2, Result::Ok(())));
+    }
+
+    #[test]
+    fn result_error() {
+        let err: Result<(), _> = Err(ServiceError::CoreInternalError);
+        let result = err.error(ServiceError::InvalidApi);
+        assert!(matches!(result, Result::Err(ServiceError::InvalidApi)));
+        let ok: Result<(), ServiceError> = Ok(());
+        let result2 = ok.error(ServiceError::CoreInternalError);
+        assert!(matches!(result2, Result::Ok(())));
+    }
+
+    #[test]
+    fn service_error_to_rust() {
+        for ele in CServiceError::iter() {
+            let index = ele.clone() as i32;
+            let rust_ele = ele.clone().to_rust();
+            match rust_ele {
+                Result::Ok(()) => assert!(matches!(ele, CServiceError::Success)),
+                Result::Err(x) => assert_eq!(x as i32, index)
+            }
+        }
+    }
+}
+
 ///
 /// This trait should be implemented by types where an error state can be converted into a `Result` of some type `T` and an appropriate `ServiceError`.
 ///
@@ -50,7 +95,7 @@ use crate::safe_api::pointer_traits::{
 pub trait ErrorMapper<T> {
     ///
     /// Takes self and the requested `ServiceError` and converts it into a `Result` of the value `T` and the requested error.
-    /// Like in the trait definition mention this function should print details to `std_error` when `debug_assertions` are enabled.
+    /// Like in the trait definition mentioned this function should print details to `std_error` when `debug_assertions` are enabled.
     ///
     /// # Errors
     /// When the value of self cannot be converted into a value of `T` the function returns the supplied `ServiceError`.
@@ -821,57 +866,57 @@ pub enum ServiceError {
     /// This variant signals that there was a problem in the core of the plugin loader.
     /// This should not be issued by plugins. Use `PluginInternalError` instead.
     ///
-    CoreInternalError,
+    CoreInternalError = 1,
     ///
     /// This variant signals that some identifier was already registered. For example trying to register an event with the same name
     /// for the same plugin twice.
     ///
-    Duplicate,
+    Duplicate = 10,
     ///
     /// This variant signals that arguments or return values validated by a `json_schema` where not valid.
     ///
-    InvalidApi,
+    InvalidApi = 7,
     ///
     /// This variant signals that a string that was expected to be a json object was not a valid
     /// json string.
     ///
-    InvalidJson,
+    InvalidJson = 5,
     ///
     /// This variant signals that a json object expected to be a `json_schema` was not a valid schema.
     ///
-    InvalidSchema,
+    InvalidSchema = 6,
     ///
     /// This variant signals that a string was not valid. This can either be the string itself
     /// being invalid or its contents not being valid in the given context.
     ///
-    InvalidString,
+    InvalidString = 4,
     ///
     /// This variant signals that something was not found. This could be a `plugin_id` lookup or an `event_name`
     /// that was not found, or similar cases.
     ///
-    NotFound,
+    NotFound = 8,
     ///
     /// This variant signals that a function pointer that was expected to be valid,
     /// was invalid or null.
     ///
-    NullFunctionPointer,
+    NullFunctionPointer = 3,
     ///
     /// This variant signals that there was an internal problem in a plugin
     /// that is not further specified or doesn't fit the available errors.
     ///
-    PluginInternalError,
+    PluginInternalError = 2,
     ///
     /// This variant is unused. Todo: remove variant!
     ///
-    PluginUninit,
+    PluginUninit = 11,
     ///
     /// This variant signals that the plugin loader is currently shutting down or restarting
     /// and a requested service was therefore not available.
     ///
-    ShutingDown,
+    ShutingDown = 12,
     ///
     /// This variant signals that some plugin tried to do some action like triggering an event registered to a
     /// different plugin.
     ///
-    Unauthorized,
+    Unauthorized = 9,
 }

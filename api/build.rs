@@ -5,7 +5,7 @@ use std::{path::PathBuf, };
 use core::str::FromStr as _;
 
 use bindgen_helpers::{Renamer,
-    callbacks::{ItemKind, ParseCallbacks, DeriveInfo},
+    callbacks::{DeriveInfo, ItemKind, ParseCallbacks, TypeKind},
     rename_enum,
 };
 
@@ -28,6 +28,17 @@ impl ParseCallbacks for CloneDerive {
     fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
         if info.name == "CApiVersion" {
             return vec!["Clone".to_owned()];
+        }
+        vec![]
+    }
+}
+
+#[derive(Debug)]
+struct EnumDerive;
+impl ParseCallbacks for EnumDerive {
+    fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
+        if matches!(info.kind, TypeKind::Enum) {
+            return vec!["EnumCount".to_owned(), "EnumIter".to_owned()]
         }
         vec![]
     }
@@ -62,7 +73,9 @@ fn main() {
         .default_enum_style(bindgen_helpers::EnumVariation::Rust {
             non_exhaustive: false,
         })
+        .raw_line("use strum_macros::{EnumCount, EnumIter};")
         .parse_callbacks(Box::new(CloneDerive))
+        .parse_callbacks(Box::new(EnumDerive))
         .parse_callbacks(Box::new(renamer))
         .parse_callbacks(Box::new(CPrefix))
         .generate()

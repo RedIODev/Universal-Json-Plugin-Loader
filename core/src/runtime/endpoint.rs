@@ -10,7 +10,7 @@ use plugin_loader_api::{
         RequestHandlerFuncUnsafeFP, trait_fn,
     },
 };
-use im::HashMap;
+use imbl::HashMap;
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};
 use serde_json::json;

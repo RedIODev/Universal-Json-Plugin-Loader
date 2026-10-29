@@ -16,6 +16,8 @@ derive-enum-from-into = "0.2.1"
 uuid = { version = "1.18.1", optional = true }
 cli-colors = "1.0.0"
 libc-print = "0.1.23"
+strum = "0.28.0"
+strum_macros = "0.28"
 
 proc-macros = { path = "../proc-macros", optional = true }
 

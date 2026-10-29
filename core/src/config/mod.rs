@@ -16,7 +16,7 @@ use plugin_loader_api::{
     ApplicationContext, ErrorMapper as _, ServiceError,
     pointer_traits::{RequestHandlerFunc, trait_fn},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use toml::Table;
@@ -81,7 +81,7 @@ impl Config {
         get_gov()?
             .config()
             .configs
-            .store(Arc::new(im::HashMap::from(cli_env_file_configs)));
+            .store(Arc::new(imbl::HashMap::from(cli_env_file_configs)));
         Ok(())
     }
     
@@ -137,7 +137,7 @@ impl Config {
 
 }
 
-#[derive(Deserialize, PartialEq)]
+#[derive(Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 enum Action {
     Load,
@@ -145,7 +145,7 @@ enum Action {
     Save,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct ConfigArgs {
     action: Action,
     key: Option<String>,

@@ -17,6 +17,6 @@
             "type": "object"
         }
     },
-    "required": ["command"]
+    "required": ["action"]
 }
 

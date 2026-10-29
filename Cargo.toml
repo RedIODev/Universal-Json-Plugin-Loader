@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "api", "example", "proc-macros"]
+members = ["core", "api", "example", "proc-macros", "plugins/postgres-db"]
 
 [workspace.lints.rust]
 nonstandard-style = "warn"

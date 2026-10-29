@@ -8,7 +8,7 @@ use plugin_loader_api::{
         EventUnregisterService, trait_fn,
     },
 };
-use im::HashMap;
+use imbl::HashMap;
 use jsonschema::Validator;
 use serde_json::json;
 use topo_sort::TopoSort;

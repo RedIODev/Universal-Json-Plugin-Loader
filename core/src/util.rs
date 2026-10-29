@@ -56,7 +56,7 @@ mod mapped_guard {
 
 use arc_swap::{ArcSwap};
 use plugin_loader_api::ServiceError;
-use im::{HashMap, HashSet, Vector};
+use imbl::{HashMap, HashSet, Vector};
 use lazy_init::LazyTransform;
 use core::hash::Hash;
 use std::collections;

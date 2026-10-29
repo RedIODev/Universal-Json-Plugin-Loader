@@ -19,6 +19,7 @@ use crate::
     launcher::{LaunchError, Launcher}
 ;
 //refactor: remove mutex blocks, check dependencies before running core:init, pointer cast in api/misc
+//move types of core events and endpoints into a separate crate
 pub fn main() -> Result<(), LaunchError> {
     Launcher::new("example-loader").launch()
 }

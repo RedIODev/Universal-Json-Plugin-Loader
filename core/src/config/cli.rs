@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use clap::Parser as ClapParser;
 use derive_more::Display;
-use im::Vector;
+use imbl::Vector;
 use thiserror::Error;
 use toml::Table;
 use toml::Value as TomlValue;
